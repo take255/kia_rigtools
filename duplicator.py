@@ -93,21 +93,21 @@ def constraint(source_name , target_name , const_type , space ,axis_x , axis_y ,
             c.use_z = False    
 
 
-class Rig_Duplicator(bpy.types.Operator):
+class KIARIGTOOLS_MT_duplicator(bpy.types.Operator):
     """リストに入っているボーンを対象に複製を行う"""
-    bl_idname = "rigtool.rig_duplicator"
-    bl_label = "ボーン複製"
+    bl_idname = "kiarigtools.duplicator"
+    bl_label = "duplicator"
 
-    bool_const = BoolProperty(name="コンストレインする")
-    bool_parent = BoolProperty(name="ペアレントを保持")
+    bool_const : BoolProperty(name="コンストレインする")
+    bool_parent : BoolProperty(name="ペアレントを保持")
 
-    radio = EnumProperty(items= (('copy', 'COPY', '選択ボーンをそのまま複製'),
+    radio : EnumProperty(items= (('copy', 'COPY', '選択ボーンをそのまま複製'),
                                            ('head', 'HEAD', '選択ボーンのheadの位置に生成'),
                                            ('tail', 'TAIL', '選択ボーンのtailの位置に生成'),
                                            ('mirror', 'MIRROR', 'Xミラーコピー')),
                                             name = "radio buttons")
 
-    radio2 = EnumProperty(items= ( ('sel','SEL','選択したボーンの向きに合わせる'),
+    radio2 : EnumProperty(items= ( ('sel','SEL','選択したボーンの向きに合わせる'),
                                             ('x', 'X',''),
                                             ('y','Y',''),
                                             ('z','Z',''),
@@ -117,22 +117,22 @@ class Rig_Duplicator(bpy.types.Operator):
                                             ),
                                    name = "radio buttons2")
 
-    const_type = EnumProperty(items = (
+    const_type : EnumProperty(items = (
     ('COPY_TRANSFORMS','TRANSFORM',''),
     ('COPY_ROTATION','ROTATION',''),
     ('COPY_LOCATION','LOCATION',''),
     ),name = 'const_type')
 
-    space = EnumProperty(items = (
+    space : EnumProperty(items = (
     ('WORLD','WORLD',''),
     ('LOCAL','LOCAL',''),
     ),name = 'space')
 
-    axis_x = BoolProperty(name="X" ,  default = True)
-    axis_y = BoolProperty(name="Y" ,  default = True)
-    axis_z = BoolProperty(name="Z" ,  default = True)
+    axis_x : BoolProperty(name="X" ,  default = True)
+    axis_y : BoolProperty(name="Y" ,  default = True)
+    axis_z : BoolProperty(name="Z" ,  default = True)
 
-    length_ratio = FloatProperty(name="骨の長さ（選択ボーンに対する割合）", default=1.0)
+    length_ratio : FloatProperty(name="骨の長さ（選択ボーンに対する割合）", default=1.0)
 
     def draw(self, context) :
         layout = self.layout
@@ -209,3 +209,11 @@ class Rig_Duplicator(bpy.types.Operator):
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
+
+
+def register():
+    bpy.utils.register_class(KIARIGTOOLS_MT_duplicator)
+
+def unregister():
+    bpy.utils.unregister_class(KIARIGTOOLS_MT_duplicator)
+

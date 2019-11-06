@@ -479,6 +479,37 @@ def align_roll_global():
         new_m.transpose()
 
         bone.matrix = new_m
+
+
+#---------------------------------------------------------------------------------------
+#コンストレイン
+#---------------------------------------------------------------------------------------
+def constraint_cleanup():        
+    for bone in bpy.context.selected_pose_bones:
+        for const in bone.constraints:
+            bone.constraints.remove( const )
+
+def constraint_cleanup_empty():
+    for bone in bpy.context.selected_pose_bones:
         
+        for const in bone.constraints:
+            isempty = False
+            
+            if const.target is None:
+                isempty = True
+            if const.subtarget == '':
+                isempty = True
 
+            if isempty is True:
+                bone.constraints.remove( const )
 
+def constraint_showhide(self,state):
+    for bone in bpy.context.selected_pose_bones:
+        for const in bone.constraints:
+            const.mute = self.const_disp_hide
+
+def constraint_change_influence(self,context):
+    bpy.ops.object.mode_set(mode = 'POSE')
+    for bone in bpy.context.selected_pose_bones:
+        for const in bone.constraints:
+            const.influence = self.const_influence                    

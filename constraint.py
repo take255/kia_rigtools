@@ -3,19 +3,6 @@ import imp
 from bpy.props import ( FloatProperty , EnumProperty ,BoolProperty )
 #from bpy.types import PropertyGroup
 
-def const_showhide_update(self,state):
-    
-    for bone in bpy.context.selected_pose_bones:
-        for const in bone.constraints:
-            const.mute = self.const_disp_hide
-
-
-def change_const_influence(self,context):
-    bpy.ops.object.mode_set(mode = 'POSE')
-    for bone in bpy.context.selected_pose_bones:
-        for const in bone.constraints:
-            const.influence = self.const_influence
-
 
 #def constraint(source_name , target_name_array , const_type , space ,axis_x , axis_y , axis_z):
 #コンストレインを返す
@@ -103,31 +90,31 @@ def constraint_transformation(source_name , target_name , const_type , space , m
         c.map_to_y_from = transform[2]
     return c
 
-class ConstraintTools(bpy.types.Operator):
-    bl_idname = "rigtool.constrainttools"
-    bl_label = "コンストレインツール"
+# class ConstraintTools(bpy.types.Operator):
+#     bl_idname = "rigtool.constrainttools"
+#     bl_label = "コンストレインツール"
 
-    def execute(self, context):
-        return {'FINISHED'}
+#     def execute(self, context):
+#         return {'FINISHED'}
 
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+#     def invoke(self, context, event):
+#         return context.window_manager.invoke_props_dialog(self)
 
-    def draw(self, context):
-        scn = context.scene
-        layout = self.layout
+#     def draw(self, context):
+#         scn = context.scene
+#         layout = self.layout
 
-        layout.operator("rigtool.setup_constraint")
+#         layout.operator("rigtool.setup_constraint")
 
 
-        row = layout.row()
-        row.alignment = 'EXPAND'
+#         row = layout.row()
+#         row.alignment = 'EXPAND'
 
-        row.operator("rigtool.constraint_cleanup")
-        row.operator("rigtool.constraint_empty_cleanup")
-        row.prop(scn, "const_disp_hide", icon='BLENDER', toggle=True)
+#         row.operator("rigtool.constraint_cleanup")
+#         row.operator("rigtool.constraint_empty_cleanup")
+#         # row.prop(scn, "const_disp_hide", icon='BLENDER', toggle=True)
 
-        layout.prop(scn, "const_influence", icon='BLENDER', toggle=True)
+        # layout.prop(scn, "const_influence", icon='BLENDER', toggle=True)
 
 
 #Muteでコンストレイン無効にする
@@ -137,38 +124,38 @@ TRANSFORM_TYPE = (('LOCATION','LOCATION',''),('ROTATION','ROTATION',''),('SCALE'
 #複数ボーンのコンストレイン適用ツール
 #リストに複数のボーンを登録し、同時にコンストレインする。
 #選択をコンストレイン元を指定、チェックされたものをコンストレインのターゲット
-class Setup_Constraint(bpy.types.Operator):
+class KIARIGTOOLS_MT_constrainttools(bpy.types.Operator):
     """複数ボーンをコンストレインする\nリストに対象のボーンを登録して実行する\nボタンを押すとUIが起動する\n選択されたものをコンストレイン元とし、チェックされたものを対象とする。"""
-    bl_idname = "rigtool.setup_constraint"
-    bl_label = "コンストレイン適用"
+    bl_idname = "kiarigtools.constrainttools"
+    bl_label = "constraint tools"
 
-    const_type = bpy.props.EnumProperty(items = (
+    const_type : bpy.props.EnumProperty(items = (
     ('COPY_TRANSFORMS','TRANSFORM',''),
     ('COPY_ROTATION','ROTATION',''),
     ('COPY_LOCATION','LOCATION',''),
     ('TRANSFORM','TRANSFORMATION','')
     ),name = 'const_type')
 
-    space = bpy.props.EnumProperty(items = (
+    space : bpy.props.EnumProperty(items = (
     ('WORLD','WORLD',''),
     ('LOCAL','LOCAL',''),
     ),name = 'space')
 
-    transform_x = bpy.props.EnumProperty(default ='X'  , items = TRANSFORM_ITEM , name = 'X')
-    transform_y = bpy.props.EnumProperty(default ='Y'  ,items = TRANSFORM_ITEM , name = 'Y')
-    transform_z = bpy.props.EnumProperty(default ='Z'  ,items = TRANSFORM_ITEM , name = 'Z')
+    transform_x : bpy.props.EnumProperty(default ='X'  , items = TRANSFORM_ITEM , name = 'X')
+    transform_y : bpy.props.EnumProperty(default ='Y'  ,items = TRANSFORM_ITEM , name = 'Y')
+    transform_z : bpy.props.EnumProperty(default ='Z'  ,items = TRANSFORM_ITEM , name = 'Z')
 
-    map_from = bpy.props.EnumProperty(default ='LOCATION'  ,items = TRANSFORM_TYPE , name = 'source')
-    map_to = bpy.props.EnumProperty(default ='LOCATION'  ,items = TRANSFORM_TYPE , name = 'destination')
+    map_from : bpy.props.EnumProperty(default ='LOCATION'  ,items = TRANSFORM_TYPE , name = 'source')
+    map_to : bpy.props.EnumProperty(default ='LOCATION'  ,items = TRANSFORM_TYPE , name = 'destination')
 
 
-    use_x = BoolProperty(name="X" ,  default = True)
-    use_y = BoolProperty(name="Y" ,  default = True)
-    use_z = BoolProperty(name="Z" ,  default = True)
+    use_x : BoolProperty(name="X" ,  default = True)
+    use_y : BoolProperty(name="Y" ,  default = True)
+    use_z : BoolProperty(name="Z" ,  default = True)
 
-    invert_x = BoolProperty(name="X" ,  default = False)
-    invert_y = BoolProperty(name="Y" ,  default = False)
-    invert_z = BoolProperty(name="Z" ,  default = False)
+    invert_x : BoolProperty(name="X" ,  default = False)
+    invert_y : BoolProperty(name="Y" ,  default = False)
+    invert_z : BoolProperty(name="Z" ,  default = False)
 
 
     def draw(self, context) :
@@ -209,8 +196,6 @@ class Setup_Constraint(bpy.types.Operator):
         row.label(text = '>>Z')
 
 
-
-
     #チェックされたものを対象とする。
     #コンストレインの元は選択されたもの
     def execute(self, context):
@@ -236,61 +221,15 @@ class Setup_Constraint(bpy.types.Operator):
                     (self.use_x,self.use_y,self.use_z) ,
                     (self.invert_x , self.invert_y , self.invert_z)
                     )
-
-                # constraint =amt.pose.bones[tgt].constraints.new(self.const_type)
-                # constraint.target = amt
-                # constraint.subtarget = source.name
-                # constraint.target_space = self.space
-                # constraint.owner_space = self.space
-
-                # if self.const_type != 'COPY_TRANSFORMS':
-                #     constraint.use_x = self.use_x
-                #     constraint.use_y = self.use_y
-                #     constraint.use_z = self.use_z
-
-                # constraint.invert_x = self.invert_x
-                # constraint.invert_y = self.invert_y
-                # constraint.invert_z = self.invert_z
         return {'FINISHED'}
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
 
-class Constraint_Cleanup(bpy.types.Operator):
-    """選択された複数ボーンのコンストレインをすべて削除する"""
-    bl_idname = "rigtool.constraint_cleanup"
-    bl_label = "全削除"
 
-    def execute(self, context):
-        
-        for bone in bpy.context.selected_pose_bones:
-            for const in bone.constraints:
-                bone.constraints.remove( const )
-        return {'FINISHED'}
+def register():
+    bpy.utils.register_class(KIARIGTOOLS_MT_constrainttools)
 
-
-class Constraint_Empty_Cleanup(bpy.types.Operator):
-    """選択された複数ボーンの空のコンストレインを削除する"""
-    bl_idname = "rigtool.constraint_empty_cleanup"
-    bl_label = "空なら削除"
-
-    def execute(self, context):
-        
-        for bone in bpy.context.selected_pose_bones:
-            
-            for const in bone.constraints:
-                isempty = False
-                #ターゲットがあるかどうか
-                # print(const.target)
-                # print(const.subtarget)
-                
-                if const.target is None:
-                    isempty = True
-                if const.subtarget == '':
-                    isempty = True
-
-                if isempty is True:
-                    bone.constraints.remove( const )
-                    
-        return {'FINISHED'}
+def unregister():
+    bpy.utils.unregister_class(KIARIGTOOLS_MT_constrainttools)

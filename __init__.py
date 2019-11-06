@@ -29,18 +29,25 @@ from bpy.props import(
     CollectionProperty,
     EnumProperty,
     BoolProperty,
-    StringProperty
+    StringProperty,
+    IntProperty
     )
 
 from . import utils
 from . import cmd
 from . import setup_ik
 from . import edit
+from . import renamer
+from . import duplicator
+from . import constraint
 
 imp.reload(utils)
 imp.reload(cmd)
 imp.reload(setup_ik)
 imp.reload(edit)
+imp.reload(renamer)
+imp.reload(duplicator)
+imp.reload(constraint)
 
 
 bl_info = {
@@ -52,18 +59,24 @@ bl_info = {
 "category": "Object"}
 
 
+#---------------------------------------------------------------------------------------
 #ボーンを選択順で拾うためのハンドラ
 #エディットモードだと更新されないので、選択順をとるならポーズモードでとるしかない
+#ツールの基本的な処理は、ポーズモードならallbonesで処理、エディットモードなら現在の選択をcontextから取得して処理する
+#---------------------------------------------------------------------------------------
+
 @persistent
 def kiarigtools_handler(scene):
     print('-------------------------------------------')
+    if utils.getActiveObj() == None:
+        return
 
     props = bpy.context.scene.kiarigtools_props
     # if props.handler_through:
     #     return
 
-    if utils.current_mode() == 'OBJECT':
-        return
+    # if utils.current_mode() == 'OBJECT':
+    #     return
 
     selected = utils.get_selected_bones()
     #ボーンが何も選択されていなければリストをクリアする
@@ -111,7 +124,13 @@ class KIARIGTOOLS_Props_OA(PropertyGroup):
     allbones : CollectionProperty(type=PropertyGroup)
     rigshape_scale : FloatProperty( name = "scale", min=0.01,default=1.0, update = cmd.rigshape_change_scale )
     setupik_lr : EnumProperty(items= (('l', 'l', 'L'),('r', 'r', 'R')))
-    setupik_number : bpy.props.IntProperty(name="count", default=2)
+    setupik_number : IntProperty(name="count", default=2)
+
+    #コンストレイン関連
+    const_influence : FloatProperty( name = "influence", min=0.00 , max=1.0, default=1.0, update= edit.constraint_showhide )
+    const_showhide : BoolProperty( name = 'mute', update = edit.constraint_change_influence )
+
+
 
 #---------------------------------------------------------------------------------------
 #UI
@@ -127,6 +146,9 @@ class KIARIGTOOLS_PT_ui(utils.panel):
         col.label(text = 'select bone into ! Posemode !')        
         col.operator("kiarigtools.rigsetuptools",icon = 'OBJECT_DATA')
         col.operator("kiarigtools.edittools",icon = 'OBJECT_DATA')
+        col.operator("kiarigtools.renamer",icon = 'OBJECT_DATA')
+        col.operator("kiarigtools.duplicator",icon = 'OBJECT_DATA')
+        col.operator("kiarigtools.constrainttools",icon = 'OBJECT_DATA')
 
 
 #---------------------------------------------------------------------------------------
@@ -190,12 +212,15 @@ class KIARIGTOOLS_MT_edittools(bpy.types.Operator):
     def invoke(self, context, event):
         props = bpy.context.scene.kiarigtools_props        
         props.handler_through = False
-
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
+        props = bpy.context.scene.kiarigtools_props        
+
         col_root = self.layout.column(align=False)
-        row = col_root.row()
+        row = col_root.split(factor = 0.3, align = False)
+
+        #row = col_root.row()
         col = row.box()
 
         box = col.box()
@@ -212,35 +237,47 @@ class KIARIGTOOLS_MT_edittools(bpy.types.Operator):
         box.label(text = 'generate')
         box.operator("kiarigtools.edit_genarate_bone_from2")
 
-        col = row.box()
+        box = row.box()
+        col1 = box.column()
+        row1 = col1.row()
+        box1 = row1.box()
+        box1.label(text = 'align')
+        box1.operator("kiarigtools.edit_align_position")
+        box1.operator("kiarigtools.edit_align_direction")
+        box1.operator("kiarigtools.edit_align_along")
+        box1.operator("kiarigtools.edit_align_near_axis")
 
-        box = col.box()
-        box.label(text = 'align')
-        box.operator("kiarigtools.edit_align_position")
-        box.operator("kiarigtools.edit_align_direction")
-        box.operator("kiarigtools.edit_align_along")
-        box.operator("kiarigtools.edit_align_near_axis")
-
-
-        col = row.box()
-
-        box = col.box()
-        box.label(text = 'align plane')
-        box.operator("kiarigtools.edit_align_2axis_plane")
-        box.operator("kiarigtools.edit_align_on_plane")
-        box.operator("kiarigtools.edit_align_at_flontview")
-        box.operator("kiarigtools.edit_adjust_roll")
+        box1 = row1.box()
+        box1.label(text = 'align plane')
+        box1.operator("kiarigtools.edit_align_2axis_plane")
+        box1.operator("kiarigtools.edit_align_on_plane")
+        box1.operator("kiarigtools.edit_align_at_flontview")
 
 
-        box = col_root.box()
+        #box = col_root.box()
+        box = col1.box()
         box.label(text = 'roll')
-        row = box.row()
+        col = box.column()
+        row = col.row()
         for x in ( '90d' , '-90d' , '180d'):
             row.operator("kiarigtools.edit_roll_degree" ,text = x ).op = x
 
+        row = col.row()
+        row.operator("kiarigtools.edit_adjust_roll")
         row.operator("kiarigtools.edit_align_roll_global")
             
+        box = col_root.box()
+        box.label(text = 'constraint')
+        split = box.split(factor = 0.5, align = False)
+        col = split.column()
+        col.prop(props,"const_influence")
+        col.prop(props,"const_showhide")
 
+        box = split.box()
+        box.label(text = 'delete')
+        row = box.row()
+        row.operator("kiarigtools.edit_constraint_cleanup")
+        row.operator("kiarigtools.edit_constraint_empty_cleanup")
 
 
 #---------------------------------------------------------------------------------------
@@ -252,23 +289,20 @@ class KIARIGTOOLS_PT_rigshape_selector(bpy.types.Operator):
     bl_label = "replace"
     bl_options = {'REGISTER', 'UNDO'}
 
-    prop = bpy.props.StringProperty(name="RigShape", maxlen=63)
-    rigshapes = bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
+    prop : bpy.props.StringProperty(name="RigShape", maxlen=63)
+    rigshapes : bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
 
     def execute(self, context):
         utils.mode_p()
-        #bpy.ops.object.mode_set(mode = 'POSE')
         for bone in bpy.context.selected_pose_bones:
             obj = bpy.data.objects[self.prop]
             bone.custom_shape = obj
 
         utils.mode_e()
-        #bpy.ops.object.mode_set(mode = 'EDIT')
         for bone in bpy.context.selected_bones:
             bone.show_wire = True
 
         utils.mode_p()
-        #bpy.ops.object.mode_set(mode = 'POSE')
         return {'FINISHED'}
 
     def draw(self, context):
@@ -473,7 +507,7 @@ class KIARIGTOOLS_OT_edit_align_at_flontview(bpy.types.Operator):
 class KIARIGTOOLS_OT_edit_adjust_roll(bpy.types.Operator):
     """リストから選択したものとその下のボーンでロール値を調整。\nいっぺんにすべてのボーンのロール修正ができないので２本ずつおこなう。"""
     bl_idname = "kiarigtools.edit_adjust_roll"
-    bl_label = "adjust roll"
+    bl_label = "adjust"
     def execute(self, context):
         edit.adjust_roll()
         return {'FINISHED'}
@@ -490,9 +524,29 @@ class KIARIGTOOLS_OT_edit_roll_degree(bpy.types.Operator):
 class KIARIGTOOLS_OT_edit_align_roll_global(bpy.types.Operator):
     """グローバル軸にX,Z軸向きをそろえる"""
     bl_idname = "kiarigtools.edit_align_roll_global"
-    bl_label = "align roll global axis"
+    bl_label = "align global"
     def execute(self, context):
         edit.align_roll_global
+        return {'FINISHED'}
+
+
+#---------------------------------------------------------------------------------------
+# constraint tool
+#---------------------------------------------------------------------------------------
+class KIARIGTOOLS_OT_edit_constraint_cleanup(bpy.types.Operator):
+    """選択された複数ボーンのコンストレインをすべて削除する"""
+    bl_idname = "kiarigtools.edit_constraint_cleanup"
+    bl_label = "all"
+    def execute(self, context):
+        edit.constraint_cleanup()
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_edit_constraint_cleanup_empty(bpy.types.Operator):
+    """選択された複数ボーンの空のコンストレインを削除する"""
+    bl_idname = "kiarigtools.edit_constraint_empty_cleanup"
+    bl_label = "empty"
+    def execute(self, context):
+        edit.constraint_cleanup_empty()
         return {'FINISHED'}
 
 
@@ -502,7 +556,6 @@ classes = (
 
     KIARIGTOOLS_MT_rigsetuptools,
     KIARIGTOOLS_MT_edittools,
-
     KIARIGTOOLS_PT_rigshape_selector,
 
     KIARIGTOOLS_OT_rigshape_revert,
@@ -533,8 +586,11 @@ classes = (
     KIARIGTOOLS_OT_edit_align_at_flontview,
     KIARIGTOOLS_OT_edit_adjust_roll,
     KIARIGTOOLS_OT_edit_roll_degree,
-    KIARIGTOOLS_OT_edit_align_roll_global
+    KIARIGTOOLS_OT_edit_align_roll_global,
 
+    #constraint
+    KIARIGTOOLS_OT_edit_constraint_cleanup,
+    KIARIGTOOLS_OT_edit_constraint_cleanup_empty,
 )
 
 def register():
@@ -544,6 +600,9 @@ def register():
     bpy.types.Scene.kiarigtools_props = PointerProperty(type=KIARIGTOOLS_Props_OA)
     bpy.app.handlers.depsgraph_update_post.append(kiarigtools_handler)
 
+    renamer.register()
+    duplicator.register()
+    constraint.register()
 
 
 def unregister():
@@ -554,3 +613,6 @@ def unregister():
     del bpy.types.Scene.kiarigtools_props
     bpy.app.handlers.depsgraph_update_post.remove(kiarigtools_handler)
 
+    renamer.unregister()
+    duplicator.unregister()
+    constraint.unregister()
