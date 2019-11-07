@@ -67,8 +67,10 @@ bl_info = {
 
 @persistent
 def kiarigtools_handler(scene):
-    print('-------------------------------------------')
+    #print('-------------------------------------------')
     if utils.getActiveObj() == None:
+        return
+    elif utils.getActiveObj().type != 'ARMATURE':
         return
 
     props = bpy.context.scene.kiarigtools_props
@@ -87,7 +89,7 @@ def kiarigtools_handler(scene):
         if utils.current_mode() == 'POSE':
             act_bone = bpy.context.active_pose_bone.name
         elif utils.current_mode() == 'EDIT':
-            print(bpy.context.active_bone.name)
+            #print(bpy.context.active_bone.name)
             act_bone = bpy.context.active_bone.name
             
 
