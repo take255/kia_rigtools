@@ -58,6 +58,7 @@ bl_info = {
 "description": "kia_rigtools",
 "category": "Object"}
 
+RIGSHAPEPATH = "E:\data\googledrive\lib\model/rig.blend"
 
 #---------------------------------------------------------------------------------------
 #ボーンを選択順で拾うためのハンドラ
@@ -151,6 +152,21 @@ class KIARIGTOOLS_PT_ui(utils.panel):
         col.operator("kiarigtools.renamer",icon = 'OBJECT_DATA')
         col.operator("kiarigtools.duplicator",icon = 'OBJECT_DATA')
         col.operator("kiarigtools.constrainttools",icon = 'OBJECT_DATA')
+
+
+#---------------------------------------------------------------------------------------
+#UI Preference
+#---------------------------------------------------------------------------------------
+class KIARIGTOOLS_MT_addonpreferences(AddonPreferences):
+    bl_idname = __name__
+ 
+    shape_path : StringProperty(default = RIGSHAPEPATH )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text='Rig Shape Path')
+        col = layout.column()
+        col.prop(self, 'shape_path',text = 'shape_path', expand=True)
 
 
 #---------------------------------------------------------------------------------------
@@ -341,7 +357,8 @@ class KIARIGTOOLS_OT_rigshape_append(bpy.types.Operator):
     bl_idname = "kiarigtools.rigshape_append"
     bl_label = "append"
     def execute(self, context):
-        cmd.rigshape_append()
+        prefs = bpy.context.preferences.addons[__name__].preferences
+        cmd.rigshape_append( prefs.shape_path )
         return {'FINISHED'}
 
 #---------------------------------------------------------------------------------------
@@ -555,6 +572,7 @@ class KIARIGTOOLS_OT_edit_constraint_cleanup_empty(bpy.types.Operator):
 classes = (
     KIARIGTOOLS_Props_OA,
     KIARIGTOOLS_PT_ui,
+    KIARIGTOOLS_MT_addonpreferences,
 
     KIARIGTOOLS_MT_rigsetuptools,
     KIARIGTOOLS_MT_edittools,
@@ -562,6 +580,7 @@ classes = (
 
     KIARIGTOOLS_OT_rigshape_revert,
     KIARIGTOOLS_OT_rigshape_append,
+    
 
     KIARIGTOOLS_OT_setupik_ik,
     KIARIGTOOLS_OT_setupik_polevector,

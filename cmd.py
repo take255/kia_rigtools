@@ -10,7 +10,7 @@ import imp
 from . import utils
 imp.reload(utils)
 
-RIGSHAPEPATH = "E:\data\googledrive\lib\model/rig.blend"
+#RIGSHAPEPATH = "E:\data\googledrive\lib\model/rig.blend"
 
 #---------------------------------------------------------------------------------------
 #リグシェイプ
@@ -29,8 +29,8 @@ def rigshape_revert():
     for bone in utils.get_:
         bone.custom_shape = None
 
-def rigshape_append():
-    filepath = RIGSHAPEPATH
+def rigshape_append(filepath):
+    #filepath = RIGSHAPEPATH
     current_scene_name = bpy.context.scene.name
 
     #RigShape_Scn 無ければ作成する
