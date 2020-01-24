@@ -171,14 +171,21 @@ class KIARIGTOOLS_MT_renamer(Operator):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop_search(self, "prop_role", self, "role", icon='FONTPREVIEW')
-        layout.prop_search(self, "prop", self, "part", icon='FONTPREVIEW')
-        layout.prop_search(self, "prop_sub", self, "sub", icon='FONTPREVIEW')
-        layout.prop_search(self, "prop_sign", self, "sign", icon='FONTPREVIEW')
-        layout.prop(self, "underbar")
-        layout.prop(self, "number_position")
-        layout.prop(self, "number")
-        layout.prop(self, "decima_rule")
+        box = layout.box()
+        box.prop_search(self, "prop_role", self, "role", icon='FONTPREVIEW')
+        box.prop_search(self, "prop", self, "part", icon='FONTPREVIEW')
+        box.prop_search(self, "prop_sub", self, "sub", icon='FONTPREVIEW')
+        box.prop_search(self, "prop_sign", self, "sign", icon='FONTPREVIEW')
+        box.prop(self, "underbar")
+        box.prop(self, "number_position")
+        box.prop(self, "number")
+        box.prop(self, "decima_rule")
+
+        box = layout.box()
+        box.operator( 'kiarigtools.renamer_replace')
+        
+
+
 
     #ポップアップが表示された時の処理
     def invoke(self, context, event):
@@ -202,8 +209,25 @@ class KIARIGTOOLS_MT_renamer(Operator):
         return context.window_manager.invoke_props_dialog(self)
 
 
+class KIARIGTOOLS_OT_renamer_replace(Operator):
+    """文字列の置換"""
+    bl_idname = "kiarigtools.renamer_replace"
+    bl_label = ".>_"
+    def execute(self, context):
+        for b in utils.get_selected_bones():
+            b.name = b.name.replace('.' , '_')
+        return {'FINISHED'}       
+
+
+classes = (
+    KIARIGTOOLS_MT_renamer,
+    KIARIGTOOLS_OT_renamer_replace
+)
+
 def register():
-    bpy.utils.register_class(KIARIGTOOLS_MT_renamer)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(KIARIGTOOLS_MT_renamer)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)

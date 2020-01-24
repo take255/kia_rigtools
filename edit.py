@@ -304,7 +304,9 @@ def align_near_axis():
 #2番目に選択される骨にＩＫが設定されている
 #---------------------------------------------------------------------------------------
 def along_2axis_plane():
-    selected = [x.name for x in utils.get_selected_bones()]
+    selected = utils.bone.sort()
+
+    # selected = [x.name for x in utils.get_selected_bones()]
     amt = bpy.context.object
 
     utils.mode_e()
@@ -331,7 +333,8 @@ def along_2axis_plane():
 #平面の法線からボーン先端の最近点を求める
 #---------------------------------------------------------------------------------------
 def align_on_plane():
-    selected = [x.name for x in utils.get_selected_bones()]
+    #selected = [x.name for x in utils.get_selected_bones()]
+    selected = utils.bone.sort()
     amt = bpy.context.object
     utils.mode_e()
 
@@ -371,11 +374,12 @@ def align_on_plane():
 #選択順が必要なのでポーズモードで
 #---------------------------------------------------------------------------------------
 def align_at_flontview():
-    props = bpy.context.scene.kiarigtools_props
+    #props = bpy.context.scene.kiarigtools_props
+    #selected = [x.name for x in props.allbones ]
     amt = bpy.context.object
-    selected = [x.name for x in props.allbones ]
     utils.mode_e()
 
+    selected = utils.bone.sort()
     bone1 = amt.data.edit_bones[selected[0]]
     bone2 = amt.data.edit_bones[selected[-1]]
 
@@ -495,11 +499,15 @@ def constraint_cleanup_empty():
         for const in bone.constraints:
             isempty = False
             
-            if const.target is None:
-                isempty = True
-            if const.subtarget == '':
-                isempty = True
+            if hasattr(const, 'target'):
+                if const.target is None:
+                    isempty = True
 
+            if hasattr(const, 'subtarget'):
+                if const.subtarget == '':
+                    isempty = True
+
+            const.driver_remove('influence')
             if isempty is True:
                 bone.constraints.remove( const )
 

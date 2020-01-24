@@ -60,20 +60,42 @@ bl_info = {
 
 
 #---------------------------------------------------------------------------------------
-#ボーンを選択順で拾うためのハンドラ
+#アーマチュアを拾ってリグコントロールに使う
+#
+#---------------------------------------------------------------------------------------
+#
+#ボーンを選択順で拾うためのハンドラ <<　ボーンを選択順で拾う必要がなくなった
 #エディットモードだと更新されないので、選択順をとるならポーズモードでとるしかない
 #ツールの基本的な処理は、ポーズモードならallbonesで処理、エディットモードなら現在の選択をcontextから取得して処理する
 #---------------------------------------------------------------------------------------
 
 @persistent
 def kiarigtools_handler(scene):
-    #print('-------------------------------------------')
-    if utils.getActiveObj() == None:
+    return
+    props = bpy.context.scene.kiarigtools_props
+    amt = utils.getActiveObj()
+    if amt == None:
+        props.armature_name = ''
         return
-    elif utils.getActiveObj().type != 'ARMATURE':
+    elif amt.type != 'ARMATURE':
+        props.armature_name = ''
         return
 
-    props = bpy.context.scene.kiarigtools_props
+    props.armature_name = amt.name
+
+
+    #amt = bpy.data.objects["Armature"]
+    # for b in amt.pose.bones:
+    #     if b.name == 'ctr.arm.l':
+    #         val = b.get('ikfk_l')
+    #         if val != None:
+    #             props.arm_ikfk_l = val
+            # arm_stretch_l : FloatProperty( name = "stretch_l", min=0.001 , max=1.0, default=1.0)
+            # arm_ikfk_l : FloatProperty( name = "ikfk_l", min=0.0 , max=1.0, default=1.0)
+
+            #print(b.ikfk_l)
+
+
     # if props.handler_through:
     #     return
 
@@ -105,16 +127,16 @@ def kiarigtools_handler(scene):
         for i , bone in enumerate(props.allbones):
             if not bone.name in [x.name for x in selected]:
                 index_notExists.append(i)
-                print(i)
+                #print(i)
 
 
         for index in reversed(index_notExists):
              props.allbones.remove(index)
 
 
-        print(utils.get_selected_bones())
-        for bone in props.allbones:
-            print(bone.name)
+        # print(utils.get_selected_bones())
+        # for bone in props.allbones:
+        #     print(bone.name)
 
 
 #---------------------------------------------------------------------------------------
@@ -132,6 +154,19 @@ class KIARIGTOOLS_Props_OA(PropertyGroup):
     const_influence : FloatProperty( name = "influence", min=0.00 , max=1.0, default=1.0, update= edit.constraint_showhide )
     const_showhide : BoolProperty( name = 'mute', update = edit.constraint_change_influence )
 
+    #リグのコントロール
+    armature_name : StringProperty( name = 'armature' )
+    arm_stretch_l : FloatProperty(  name = "l",min=0.001 , max=1.0, default=1.0)
+    arm_stretch_r : FloatProperty( name = "r", min=0.001 , max=1.0, default=1.0)
+    arm_ikfk_l : FloatProperty( name = "l", min=0.0 , max=1.0, default=1.0)
+    arm_ikfk_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0)
+
+    leg_stretch_l : FloatProperty(  name = "l",min=0.001 , max=1.0, default=1.0)
+    leg_stretch_r : FloatProperty( name = "r", min=0.001 , max=1.0, default=1.0)
+    leg_ikfk_l : FloatProperty( name = "l", min=0.0 , max=1.0, default=1.0)
+    leg_ikfk_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0)
+
+
 
 
 #---------------------------------------------------------------------------------------
@@ -144,6 +179,8 @@ class KIARIGTOOLS_PT_ui(utils.panel):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
+        props = bpy.context.scene.kiarigtools_props        
+
         col = self.layout.column(align=False)
         col.label(text = 'select bone into ! Posemode !')        
         col.operator("kiarigtools.rigsetuptools",icon = 'OBJECT_DATA')
@@ -151,6 +188,126 @@ class KIARIGTOOLS_PT_ui(utils.panel):
         col.operator("kiarigtools.renamer",icon = 'OBJECT_DATA')
         col.operator("kiarigtools.duplicator",icon = 'OBJECT_DATA')
         col.operator("kiarigtools.constrainttools",icon = 'OBJECT_DATA')
+        col.operator("kiarigtools.rigcontrolpanel",icon = 'OBJECT_DATA')
+
+
+#---------------------------------------------------------------------------------------
+#リグセットアップツール
+#---------------------------------------------------------------------------------------
+class KIARIGTOOLS_MT_rigcontrolpanel(bpy.types.Operator):
+    bl_idname = "kiarigtools.rigcontrolpanel"
+    bl_label = "rig control panel"
+
+    def execute(self, context):
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        props = bpy.context.scene.kiarigtools_props
+        amt = utils.getActiveObj()
+        if amt == None:
+            props.armature_name = ''
+            return
+        elif amt.type != 'ARMATURE':
+            props.armature_name = ''
+            return
+
+        props.armature_name = amt.name
+
+        for part in ('arm', 'leg'):
+            for lr in ('l', 'r'):
+                name = 'ctr.%s.%s' % (part , lr)
+
+                if name in [b.name for b in amt.pose.bones]:
+                    bone = amt.pose.bones[name]
+                    val = bone.get('ikfk_%s' % lr )
+                    if val != None:
+                        exec('props.%s_ikfk_%s = val' % ( part , lr ))
+
+        # for b in amt.pose.bones:
+        #     if b.name == 'ctr.arm.l':
+        #         val = b.get('ikfk_l')
+        #         if val != None:
+        #             props.arm_ikfk_l = val
+        #         val = b.get('stretch_l')
+        #         if val != None:
+        #             props.arm_ikfk_l = val
+
+
+        #     elif b.name == 'ctr.arm.r':
+        #         val = b.get('ikfk_r')
+        #         if val != None:
+        #             props.arm_ikfk_r = val
+
+
+        return context.window_manager.invoke_props_dialog(self)
+
+
+    def draw(self, context):
+        props = bpy.context.scene.kiarigtools_props        
+
+        col = self.layout.column(align=False)
+
+        box = col.box()
+        box.label(text = 'rigshape')
+
+        box.prop(props, "armature_name")
+        row  = col.column()
+        rig_ui( props ,  row , 'arm' , 'l')
+        rig_ui( props ,  row , 'leg' , 'l')
+
+        
+def rig_ui( props , row , parts , lr ):
+    #row = box.row()
+    box1 = row.box()
+    box1.label(text = '%s' % parts )
+
+    box2 = box1.box()
+    box2.label(text = 'ikfk')
+
+    col = box2.column()
+    row = col.row()
+    row.prop(props, "%s_ikfk_%s"  % (parts , 'l') )
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+
+    col = box2.column()
+    row = col.row()
+    row.prop(props, "%s_ikfk_%s"  % (parts , 'r') )
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+
+
+    box2 = box1.box()
+    box2.label(text = 'stretch')
+
+    col = box2.column()
+    row = col.row()
+    row.prop(props, "%s_stretch_%s"  % (parts , 'l') )
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+
+    col = box2.column()
+    row = col.row()
+    row.prop(props, "%s_stretch_%s"  % (parts , 'r') )
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+    row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+
+
+
+    # box3 = box1.box()
+    # box3.label(text = 'ikfk')
+    # row = box3.row()
+    # row.prop(props, "%s_ikfk_%s"  % (parts , lr) )
+    # row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+    # row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+
+    # box3 = box1.box()
+    # box3.label(text = 'ikfk')
+    # row = box3.row()
+    # row.prop(props, "%s_ikfk_%s"  % (parts , lr) )
+    # row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+    # row.operator("kiarigtools.rigctr_arm",icon = 'OBJECT_DATA')
+
 
 
 #---------------------------------------------------------------------------------------
@@ -392,7 +549,7 @@ class KIARIGTOOLS_OT_setupik_rig_leg(bpy.types.Operator):
     bl_idname = "kiarigtools.setupik_rig_leg"
     bl_label = "leg"
     def execute(self, context):
-        setup_ik.setup_rig_leg()
+        setup_ik.setupik_rig_leg()
         return {'FINISHED'}
 
 class KIARIGTOOLS_OT_setupik_rig_spine(bpy.types.Operator):
@@ -531,6 +688,17 @@ class KIARIGTOOLS_OT_edit_align_roll_global(bpy.types.Operator):
         edit.align_roll_global
         return {'FINISHED'}
 
+#---------------------------------------------------------------------------------------
+# rig tool
+#---------------------------------------------------------------------------------------
+class KIARIGTOOLS_OT_rigctr_arm(bpy.types.Operator):
+    """リグ"""
+    bl_idname = "kiarigtools.rigctr_arm"
+    bl_label = ""
+    def execute(self, context):
+        edit.align_roll_global
+        return {'FINISHED'}
+
 
 #---------------------------------------------------------------------------------------
 # constraint tool
@@ -558,6 +726,8 @@ classes = (
 
     KIARIGTOOLS_MT_rigsetuptools,
     KIARIGTOOLS_MT_edittools,
+    KIARIGTOOLS_MT_rigcontrolpanel,
+
     KIARIGTOOLS_PT_rigshape_selector,
 
     KIARIGTOOLS_OT_rigshape_revert,
@@ -593,6 +763,9 @@ classes = (
     #constraint
     KIARIGTOOLS_OT_edit_constraint_cleanup,
     KIARIGTOOLS_OT_edit_constraint_cleanup_empty,
+
+    #rig_ctr
+    KIARIGTOOLS_OT_rigctr_arm,
 )
 
 def register():

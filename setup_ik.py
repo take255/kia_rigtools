@@ -14,10 +14,12 @@ from . import utils
 
 from . import duplicator
 from . import constraint
+from . import edit
 
 imp.reload(utils)
 imp.reload(duplicator)
 imp.reload(constraint)
+imp.reload(edit)
 
 
 #---------------------------------------------------------------------------------------
@@ -25,10 +27,13 @@ imp.reload(constraint)
 #---------------------------------------------------------------------------------------
 def ik():
     props = bpy.context.scene.kiarigtools_props        
-    if props.allbones != []:
-        first = props.allbones[0].name
-        second = props.allbones[1].name
-        create_ik_modifier( first , second , props.setupik_number )
+    bones = utils.bone.sort()
+    if bones != []:
+        create_ik_modifier( bones[0] , bones[1] , props.setupik_number )
+    # if props.allbones != []:
+    #     first = props.allbones[0].name
+    #     second = props.allbones[1].name
+    #     create_ik_modifier( first , second , props.setupik_number )
 
 #---------------------------------------------------------------------------------------
 #ポールベクター設定 : 根本、先の順に2軸を選択 2番目に選択される骨にＩＫが設定されているように
@@ -81,6 +86,50 @@ def move_layer(bone_name,number):
         bpy.context.object.data.bones[bone_name].layers[i] = False    
 
     bpy.context.object.data.bones[bone_name].layers[number] = True
+
+def genarate_bone_from_chain( first , second , bonename):
+    utils.mode_e()
+    amt = bpy.context.object
+    target = amt.data.edit_bones.new(bonename)
+    target.head = amt.data.edit_bones[first].head
+    target.tail = amt.data.edit_bones[second].tail
+    target.roll = amt.data.edit_bones[first].roll
+    #target.parent = root
+    return target.name
+
+#２つのボーンのヘッドどうしをつないだボーン作成
+def genarate_from_2bonehead( first , second , bonename):
+    utils.mode_e()
+    amt = bpy.context.object
+    target = amt.data.edit_bones.new(bonename)
+    target.head = amt.data.edit_bones[first].head
+    target.tail = amt.data.edit_bones[second].head
+    #target.roll = amt.data.edit_bones[first].roll
+    #target.parent = root
+    return target.name
+
+
+#---------------------------------------------------------------------------------------
+#ストレッチプロパティを追加
+#---------------------------------------------------------------------------------------
+
+def add_property_stretch( bonearray , ctr ):
+    bpy.types.PoseBone.stretch = bpy.props.FloatProperty(name="Stretch", default=0.001, min=0.0, max=1)
+    amt.pose.bones[arm_ctr].stretch = 0.001
+
+    for bone in bonearray:
+        d = bpy.context.object.pose.bones[ bone ].driver_add("ik_stretch")
+        d.driver.type = 'SCRIPTED'
+        d.driver.expression = 'var'
+
+
+        #ドライバ変数の作成
+        var = d.driver.variables.new()
+        var.name = 'var'
+        var.type = 'SINGLE_PROP'
+        var.targets[0].id = amt
+        var.targets[0].data_path = "pose.bones[\"%s\"].[\"stretch\"]" % ctr
+
 
 
 #---------------------------------------------------------------------------------------
@@ -135,7 +184,8 @@ def create_polevector( first , second ,name):
     for const in jnt_ik.constraints:
         if const.type == 'IK':
             const.pole_target = amt
-            const.pole_subtarget = b.name
+            #const.pole_subtarget = b.name
+            const.pole_subtarget = name
         
     return name
 
@@ -337,25 +387,20 @@ def setup_rig_arm():
     amt = bpy.context.object
     props = bpy.context.scene.kiarigtools_props        
     lr = props.setupik_lr
-    lr = 'l'
+    bones = utils.bone.sort()
 
     #レイヤ８をアクティブにする
     bpy.context.object.data.layers[8] = True
 
     #ポーズモードにする
     bpy.ops.object.mode_set(mode = 'POSE')
-    #if lib.exists:
-    if props.allbones != []:
-        first = props.allbones[0].name
-        last = props.allbones[-1].name
-        #count = len(props.allbones)
+    if bones != []:
+        #選択したもののコンストレインをすべて削除
+        edit.constraint_cleanup()
 
-        # bones = lib.list_get_checked()
-        # num = lib.list_get_checked_number()
-
-        bones = [x.name for x in props.allbones]
-        num = len(props.allbones)
-
+        first = bones[0]
+        last = bones[-1]
+        num = len(bones)
 
         #手の位置にコントローラを作成
         arm_med = duplicator.duplicate( bones[3] ,'med.arm.' + lr, 'copy' ,0.25 , 'sel')
@@ -424,8 +469,10 @@ def setup_rig_arm():
 
 
         #ストレッチプロパティを追加
-        bpy.types.PoseBone.stretch = bpy.props.FloatProperty(name="Stretch", default=0.001, min=0.0, max=1)
-        amt.pose.bones[arm_ctr].stretch = 0.001
+        # bpy.types.PoseBone.stretch = bpy.props.FloatProperty(name="Stretch", default=0.001, min=0.0, max=1)
+        # amt.pose.bones[arm_ctr].stretch = 0.001
+        bpy.context.object.pose.bones[arm_ctr]["stretch_" + lr] = 0.001
+
 
         for bone in (arm_med_ik0,arm_med_ik1):
             d = bpy.context.object.pose.bones[ bone ].driver_add("ik_stretch")
@@ -440,18 +487,49 @@ def setup_rig_arm():
             var.targets[0].id = amt
             #var.targets[0].data_path = "pose.bones[\"ctr.arm.l\"][\"prop\"]"
             #var.targets[0].data_path = "pose.bones[\"%s\"].stretch" % arm_ctr
-            var.targets[0].data_path = "pose.bones[\"%s\"].[\"stretch\"]" % arm_ctr
+            #var.targets[0].data_path = "pose.bones[\"%s\"].[\"stretch\"]" % arm_ctr
+            var.targets[0].data_path = "pose.bones[\"%s\"].[\"stretch_%s\"]" % ( arm_ctr , lr )
+
+
+
+        #IKFKプロパティ追加
+        # bpy.types.PoseBone.ikfk = bpy.props.FloatProperty(name="IKFK", default=1.0, min=0.0, max=1)
+        # amt.pose.bones[arm_ctr].ikfk = 1.0
+        bpy.context.object.pose.bones[arm_ctr]["ikfk_" + lr] = 1.0
+
+        for bone in (bones[1], bones[2]):
+            for c in bpy.context.object.pose.bones[ bone ].constraints:
+                if c.type == 'COPY_TRANSFORMS':
+                    d = c.driver_add("influence")
+                    d.driver.type = 'SCRIPTED'
+                    d.driver.expression = 'var'
+
+                    # #ドライバ変数の作成
+                    var = d.driver.variables.new()
+                    var.name = 'var'
+                    var.type = 'SINGLE_PROP'
+                    var.targets[0].id = amt
+                    #var.targets[0].data_path = "pose.bones[\"%s\"].[\"ikfk\"]" % arm_ctr
+                    var.targets[0].data_path = "pose.bones[\"%s\"].[\"ikfk_%s\"]" % ( arm_ctr , lr)
+
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.context.object.data.layers[2] = True
+
 
 
 
 #---------------------------------------------------------------------------------------
-#脚のリグの自動設定。太もも、すね、足、つま先の順でリストに並べる
+#脚のリグの自動設定。腰、太もも、すね、足、つま先の順でリストに並べる
+#腰骨はIKボーンを作るために追加で必要
 #既存のコントローラを流用したい場合は、そのあとにIKコントローラ、ポールベクターの順に追加
 #---------------------------------------------------------------------------------------
 def setupik_rig_leg():
-
-    lr = bpy.context.scene.setup_ik_lr
     amt = bpy.context.object
+    props = bpy.context.scene.kiarigtools_props        
+    lr = props.setupik_lr    
+    #lr = bpy.context.scene.setup_ik_lr
+    bones = utils.bone.sort()
+
 
     #レイヤ８をアクティブにする
     bpy.context.object.data.layers[8] = True
@@ -459,24 +537,172 @@ def setupik_rig_leg():
 
     #ポーズモードにする
     bpy.ops.object.mode_set(mode = 'POSE')
-    if lib.exists:
-        bones = lib.list_get_checked()
-        num = lib.list_get_checked_number()
+    # if lib.exists:
+    #     bones = lib.list_get_checked()
+    #     num = lib.list_get_checked_number()
+    if bones != []:
+        #選択したもののコンストレインをすべて削除
+        edit.constraint_cleanup()
+
 
         #くるぶしの位置にコントローラを作成
         #リストにあるボーン数が３ならコントローラ作成。でなければ流用する
-        leg_ctr = duplicator.duplicate( bones[2] ,'ctr.leg.' + lr, 'copy' ,0.5 , 'sel')
-        duplicator.constraint(bones[2] ,leg_ctr , 'COPY_ROTATION' , 'WORLD' ,True , True , True)
+        #くるぶしはコントローラとして扱わない。 ctr.leg.l >> med.leg.ik.lに改名
+        #foor > legに改名
+        leg_med_ik = duplicator.duplicate( bones[3] ,'med.leg.ik.' + lr, 'copy' ,0.5 , 'sel')
+        duplicator.constraint(bones[3] ,leg_med_ik , 'COPY_ROTATION' , 'WORLD' ,True , True , True)
+
+
+        #IKボーンのリグを作成。本骨はストレッチさせる設定をする
+        #腕と違って鎖骨がないのでベース骨どうするか < HipBoneからふとももの根本に描けて
+        #IKの根本のボーンは鎖骨を複製したものを使用。鎖骨にコンストレインさせる
+        leg_med_ik_base = duplicator.duplicate( bones[0] ,'med.leg.ikbase.' + lr, 'copy' , 1 , 'sel')
+        #leg_med_ik_base = genarate_from_2bonehead( bones[0] , bones[1] , 'med.leg.ikbase.' + lr )
+        leg_med_ik0 = duplicator.duplicate( bones[1] ,'med.leg.ik0.' + lr, 'copy' , 1 , 'sel')
+        leg_med_ik1 = duplicator.duplicate( bones[2] ,'med.leg.ik1.' + lr, 'copy' , 1 , 'sel')
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        parent(leg_med_ik1 , leg_med_ik0)    #親子付け(子供、親)            
+        parent(leg_med_ik0 , leg_med_ik_base)
+
+        #IK骨に本骨をコンストレインする
+        constraint.constraint( leg_med_ik_base , bones[0] ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
+        constraint.constraint( bones[1] , leg_med_ik0 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
+        constraint.constraint( bones[2] , leg_med_ik1 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
+        #bpy.ops.pose.constraint_add(type='MAINTAIN_VOLUME')
+        maintain_volume(bones[1])
+        maintain_volume(bones[2])
 
         #IK設定            
-        create_ik_modifier(bones[1], leg_ctr , 2)
+        create_ik_modifier(leg_med_ik1, leg_med_ik , 2)
+        amt.pose.bones[leg_med_ik0].ik_stretch = 0.001
+        amt.pose.bones[leg_med_ik1].ik_stretch = 0.001
 
         #ポールベクター設定
-        pole_ctr = create_polevector(bones[0],bones[1],'ctr.leg.pole.' + lr)
+        pole_ctr = create_polevector( leg_med_ik0 , leg_med_ik1 , 'ctr.leg.pole.' + lr )
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        # #親子付け(子供、親)            
+        # parent(leg_med , leg_med_ik)
+
+        leg_switch  = 'med.leg.switch.c'
+        if leg_switch in amt.data.edit_bones:
+            parent(leg_med_ik , leg_switch)
+
+        
+        #足のリグ作成
+        #つま先の骨を複製して足のコントローラを作成
+        leg_ctr = duplicator.duplicate( bones[4] ,'ctr.leg.' + lr, 'head' ,0.5 , 'y')
+
+        #つま先の骨を複製してかかとのコントローラを作成
+        heel_ctr = duplicator.duplicate( bones[4] ,'ctr.heel.' + lr, 'head' ,0.5 , 'y')
+        #duplicator.constraint(bones[2] ,heel_ctr , 'COPY_ROTATION' , 'WORLD' ,True , True , True)
+
+        #つま先のコンストレイン用中間ノード
+        heel_med = duplicator.duplicate( bones[4] ,'ctr.heel.med.' + lr, 'copy' ,0.25 , 'sel')
+        duplicator.constraint(bones[4] ,heel_med , 'COPY_ROTATION' , 'WORLD' ,True , True , True)
+
+
+        #親子付け
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        parent(leg_med_ik , heel_ctr)
+        parent(heel_ctr , leg_ctr)
+        parent(heel_med , leg_ctr)
+
+        # for bone in (leg_med_ik , pole_ctr):
+        #     amt.data.edit_bones[bone].show_wire = True
+
+        #シェイプ変更
+        bpy.ops.object.mode_set(mode='POSE')
+        #amt.pose.bones[leg_med_ik].custom_shape = bpy.data.objects['rig.shape.cube']
+        amt.pose.bones[heel_ctr].custom_shape = bpy.data.objects['rig.shape.circle']
+        amt.pose.bones[leg_ctr].custom_shape = bpy.data.objects['rig.shape.foot']
+        amt.pose.bones[pole_ctr].custom_shape = bpy.data.objects['rig.shape.pole']
+
+        #レイヤの設定
+        #直接さわらない補助ボーン
+        # for bone in ( heel_med ):
+        #     move_layer(bone,8)
+        move_layer(heel_med,8)
+        #リグ
+        bpy.context.object.data.layers[2] = True
+        for bone in ( pole_ctr , heel_ctr ,leg_ctr ):
+            move_layer(bone,2)
+
+
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        for bone in ( leg_ctr , pole_ctr):
+            amt.data.edit_bones[bone].show_wire = True
+
+
+        #ストレッチプロパティを追加
+
+        #bpy.types.PoseBone.stretch = bpy.props.FloatProperty(name="Stretch", default=0.001, min=0.0, max=1)
+        #amt.pose.bones[leg_ctr].stretch = 0.001
+
+        
+        #bpy.types.PoseBone.stretch
+        #bpy.types.PoseBone.stretch_l = bpy.props.FloatProperty(min = 0.0 , max= 1.0 )
+        bpy.context.object.pose.bones[leg_ctr]["stretch_" + lr] = 0.001
+        #bpy.ops.wm.properties_edit( data_path="active_pose_bone", property="ikfk_r", min=0, max=1)
+        #bpy.context.object.pose.bones[leg_ctr]["stretch_" + lr] = {"min":0.0,"max": 1.0}
+
+
+
+        for bone in (leg_med_ik0,leg_med_ik1):
+            d = bpy.context.object.pose.bones[ bone ].driver_add("ik_stretch")
+            d.driver.type = 'SCRIPTED'
+            d.driver.expression = 'var'
+
+
+            #ドライバ変数の作成
+            var = d.driver.variables.new()
+            var.name = 'var'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id = amt
+            var.targets[0].data_path = "pose.bones[\"%s\"].[\"stretch_%s\"]" % ( leg_ctr , lr )
+
+
+        #IKFKプロパティ追加
+        # bpy.types.PoseBone.ikfk = bpy.props.FloatProperty(name="IKFK", default=1.0, min=0.0, max=1)
+        # amt.pose.bones[leg_ctr].ikfk = 1.0
+        #bpy.context.object.pose.bones[leg_ctr]["ikfk"] = 0.001
+        bpy.context.object.pose.bones[leg_ctr]["ikfk_" + lr] = 1.0
+
+
+        for bone in (bones[1], bones[2]):
+            for c in bpy.context.object.pose.bones[ bone ].constraints:
+                if c.type == 'COPY_TRANSFORMS':
+                    d = c.driver_add("influence")
+                    d.driver.type = 'SCRIPTED'
+                    d.driver.expression = 'var'
+
+                    # #ドライバ変数の作成
+                    var = d.driver.variables.new()
+                    var.name = 'var'
+                    var.type = 'SINGLE_PROP'
+                    var.targets[0].id = amt
+                    var.targets[0].data_path = "pose.bones[\"%s\"].[\"ikfk_%s\"]" % ( leg_ctr , lr)
+
+
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.context.object.data.layers[2] = True
+
+
+
+def setupik_rig_leg__():
+
+        #IK設定            
+        #ポールベクター設定
+        # create_ik_modifier(bones[1], leg_ctr , 2)
+        # pole_ctr = create_polevector(bones[0],bones[1],'ctr.leg.pole.' + lr)
+
 
         #足のリグ作成
         #つま先の骨を複製して足のコントローラを作成
-        foot_ctr = duplicator.duplicate( bones[3] ,'ctr.foot.' + lr, 'head' ,0.5 , 'y')
+        leg_ctr = duplicator.duplicate( bones[3] ,'ctr.foot.' + lr, 'head' ,0.5 , 'y')
 
         #つま先の骨を複製してかかとのコントローラを作成
         heel_ctr = duplicator.duplicate( bones[3] ,'ctr.heel.' + lr, 'head' ,0.5 , 'y')
@@ -489,13 +715,6 @@ def setupik_rig_leg():
 
         #親子付け
         bpy.ops.object.mode_set(mode='EDIT')
-
-        # leg_ctr_bone = amt.data.edit_bones[leg_ctr]
-        # heel_ctr_bone = amt.data.edit_bones[heel_ctr]
-        # foot_ctr_bone = amt.data.edit_bones[foot_ctr]
-
-        # leg_ctr_bone.parent = heel_ctr_bone
-        # heel_ctr_bone.parent = foot_ctr_bone
 
 
         parent(leg_ctr , heel_ctr)
@@ -528,20 +747,20 @@ def setupik_rig_leg():
         for bone in (leg_ctr , heel_ctr , foot_ctr , pole_ctr):
             amt.data.edit_bones[bone].show_wire = True
 
+        #add_property_stretch()
 
 
 #背骨リグのセットアップ
 #腰から胸までの骨を順番にリストに登録して実行
 def setup_rig_spine():
-
-    if lib.exists:
-        bones = lib.list_get_checked()
+    bones = utils.bone.sort()
+    if bones != []:
         amt = bpy.context.object
         
         
         #まず、背骨のIKジョイントを作成する
         #生成されたIK骨の向きを背骨に合わせる
-        med_spine_c = edit.genarate_bone_from_chain( bones[1] , bones[-2] , 'med.spine.c')
+        med_spine_c = genarate_bone_from_chain( bones[1] , bones[-2] , 'med.spine.c')
 
         #IKジョイントに背骨の一部を回転拘束 1,2,最後を除く骨
         for bone in bones[2:-1]:
@@ -628,7 +847,7 @@ def setup_rig_spine():
 #首リグのセットアップ
 #胸の骨、首、頭までの骨を順番にリストに登録して実行
 #胸の骨入れ忘れに注意
-def execute(self, context):
+def setup_rig_neck():
     if lib.exists:
         
         #レイヤ８をアクティブにする
