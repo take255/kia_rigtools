@@ -848,13 +848,14 @@ def setup_rig_spine():
 #胸の骨、首、頭までの骨を順番にリストに登録して実行
 #胸の骨入れ忘れに注意
 def setup_rig_neck():
-    if lib.exists:
-        
+    bones = utils.bone.sort()
+    if bones != []:
+        amt = bpy.context.object
+
         #レイヤ８をアクティブにする
         bpy.context.object.data.layers[8] = True
+        root = 'rig_root'#骨が生成されることによりインデックスが変わるためここでrootを取得する必要がある
 
-        bones = lib.list_get_checked()
-        amt = bpy.context.object
                     
         #まず、首骨のIKジョイントを作成する
         #生成されたIK骨の向きを背骨に合わせる
@@ -867,9 +868,13 @@ def setup_rig_neck():
 
         #頭IKコントローラ作成
         #constraint(コンスト先、コンスト元)
-        head_med_switch = duplicator.duplicate( bones[-1] ,'med.head.switch.c', 'head' ,0.25 , 'y')#グローバル軸に合わせる。
+        #head_med_switch = duplicator.duplicate( bones[-1] ,'med.head.switch.c', 'head' ,0.25 , 'y')#グローバル軸に合わせる。
+        head_med_switch = duplicator.duplicate( bones[-1] ,'med.head.switch.c', 'copy' ,0.25 , 'sel')#リグルートと同じ向きにする
+        head_med_switchtarget = duplicator.duplicate( bones[-1] ,'med.head.switchtarget.c', 'copy' ,0.25 , 'sel')#リグルートの子供にしてコンストターゲットにする
+        #head_med_switch = duplicator.duplicate( root ,'med.head.switch.c', 'copy' ,0.25 , 'sel')#リグルートを複製
         head_med = duplicator.duplicate( bones[-1] ,'med.head.c', 'copy' ,0.2 , 'sel')#コントローラの子供にして、頭の軸向きに合わせる
-        head_ctr = duplicator.duplicate( bones[-1] ,'ctr.head.c', 'head' ,0.5 , 'y')
+        #head_ctr = duplicator.duplicate( bones[-1] ,'ctr.head.c', 'head' ,0.5 , 'y')
+        head_ctr = duplicator.duplicate( bones[-1] ,'ctr.head.c', 'copy' ,0.5 , 'sel')
         constraint.constraint(bones[-1] ,head_med ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
         #constraint.constraint_transformation(bones[-1] ,head_med ,  'TRANSFORM' , 'WORLD' ,'ROTATION', 'ROTATION' , (''))
 
@@ -877,8 +882,10 @@ def setup_rig_neck():
         #         self.map_from,self.map_to,
         #         (self.transform_x , self.transform_y , self.transform_z) )
 
-        root = lib.rigroot()#骨が生成されることによりインデックスが変わるためここでrootを取得する必要がある
-        constraint.constraint(head_med_switch ,root.name ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+        #constraint.constraint(head_med_switch ,'rig_root' ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+        constraint.constraint(head_med_switch ,head_med_switchtarget ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+        
+        #constraint.constraint(head_med_switch ,root.name ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
         create_ik_modifier( med_neck_c , head_ctr , 1)
 
         #頭のコントローラの回転を首に伝える
@@ -886,8 +893,7 @@ def setup_rig_neck():
         #     c = constraint.constraint( bone , head_ctr , 'COPY_ROTATION' , 'LOCAL' ,(False,True,False) , (False,False,False))
         #     c.influence = 0.33
 
-
-
+        
         #首骨のベースコントローラを作成
         neck_base_med = duplicator.duplicate( bones[0] ,'med.neck.base.c', 'copy' ,0.5 , 'sel')
         neck_ctr = duplicator.duplicate( bones[1] ,'ctr.neck.c', 'copy' ,0.5 , 'sel')
@@ -906,11 +912,15 @@ def setup_rig_neck():
         # #親子付け(子供、親)
         bpy.ops.object.mode_set(mode='EDIT')
 
-        parent(neck_ctr , neck_base_med)
+        
+        parent(head_med_switchtarget , root)
         parent(head_ctr , head_med_switch)
-        parent(head_med , head_ctr)
         parent(head_med_switch , neck_ctr)
+        parent(head_med , head_ctr)
+        parent(neck_ctr , neck_base_med)        
         parent(med_neck_c , neck_ctr)
+        
+ 
 
 
         # #腕のIKコントローラが存在するならarm_switch_ctrの子供にする
@@ -922,7 +932,7 @@ def setup_rig_neck():
         bpy.ops.object.mode_set(mode='POSE')
 
         amt.pose.bones[neck_ctr].custom_shape = bpy.data.objects['rig.shape.neck.base']
-        amt.pose.bones[head_ctr].custom_shape = bpy.data.objects['rig.shape.head']
+        amt.pose.bones[head_ctr].custom_shape = bpy.data.objects['rig.shape.cube']
 
 
         #レイヤの設定

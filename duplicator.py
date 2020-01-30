@@ -181,10 +181,10 @@ class KIARIGTOOLS_MT_duplicator(bpy.types.Operator):
 
             newnameArray.append(newname)
 
-        Utils.cursorOrigin()
+        utils.cursorOrigin()
 
         bpy.ops.armature.duplicate_move()        
-        Utils.mirrorBoneXaxis()
+        utils.mirrorBoneXaxis()
 
         for source,newname in zip(bpy.context.selected_bones,newnameArray):
             source.name = newname
