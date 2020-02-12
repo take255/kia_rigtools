@@ -29,15 +29,17 @@ def genarate_bone_from_chain( first , second , bonename):
 
 #最後に選択されたアクティブなボーンに長さをそろえる
 def length_uniform():
-    props = bpy.context.scene.kiarigtools_props
     amt = bpy.context.object
-
     utils.mode_e()
-    act_bone = amt.data.edit_bones[ props.allbones[-1].name ]
-    vec = Vector(act_bone.head) - Vector(act_bone.tail)
+    selected = utils.get_selected_bones()
+    active = utils.get_active_bone()
+
+    #utils.mode_e()
+    #act_bone = amt.data.edit_bones[ props.allbones[-1].name ]
+    vec = Vector(active.head) - Vector(active.tail)
     length = vec.length
 
-    for b in props.allbones:
+    for b in selected:
         bone = amt.data.edit_bones[b.name]
         vec = Vector(bone.head) - Vector(bone.tail)
         bone.tail = -(length/vec.length)*vec + bone.head
@@ -45,10 +47,10 @@ def length_uniform():
 #選択されたボーンの長さを半分に
 def length_half():
     amt = bpy.context.object
-    props = bpy.context.scene.kiarigtools_props
-
     utils.mode_e()
-    for b in props.allbones:
+    selected = utils.get_selected_bones()
+    
+    for b in selected:
         bone = amt.data.edit_bones[b.name]
         head = Vector(bone.head)
         vec = Vector(bone.tail) - head
@@ -521,3 +523,46 @@ def constraint_change_influence(self,context):
     for bone in bpy.context.selected_pose_bones:
         for const in bone.constraints:
             const.influence = self.const_influence                    
+
+#---------------------------------------------------------------------------------------
+#connect chain 
+#---------------------------------------------------------------------------------------
+def connect_chain():
+    utils.mode_e()
+    for b in utils.bone.get_selected_bones():
+        b.use_connect = True
+
+#---------------------------------------------------------------------------------------
+#delete rig
+#---------------------------------------------------------------------------------------
+def delete_rig_loop(bone,root):
+    p = bone.parent
+    if p == None:
+        return False
+
+    elif p.name == root:
+        return True
+
+    else:
+        return delete_rig_loop(p,root)
+    
+    
+
+def delete_rig():
+    utils.mode_p()
+    bpy.context.object.data.layers[8] = True
+
+    amt = bpy.context.object
+    root = 'rig_root'
+    utils.mode_e()
+    bpy.ops.armature.select_all(action='DESELECT')
+
+    result = []
+    for b in amt.data.edit_bones:
+        if delete_rig_loop( b , root ):
+            result.append(b)
+
+    for b in result:
+        b.select = True
+    
+    bpy.ops.armature.delete()

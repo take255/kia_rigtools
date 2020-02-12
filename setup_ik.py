@@ -73,7 +73,8 @@ def polevector():
 #         return {'FINISHED'}
 
 
-#親子付け、存在を確認して無ければワーニング
+#親子付け、存在を確認して無ければ
+#If parent exists return True ,if not exists return False.
 def parent(child , parent):
     amt = bpy.context.object
 
@@ -85,15 +86,40 @@ def parent(child , parent):
         child_bone = amt.data.edit_bones[child]
         parent_bone  = amt.data.edit_bones[parent]
         child_bone.parent = parent_bone
+        return True
     else:
         print('%s or %s not exist' % (child , parent))
+        return False
+
+def connect(child , parent):
+    amt = bpy.context.object
+
+    a = child in [x.name for x in amt.data.edit_bones]
+    b = parent in [x.name for x in amt.data.edit_bones]
+
+    if a and b:
+        amt = bpy.context.object
+        child_bone = amt.data.edit_bones[child]
+        parent_bone  = amt.data.edit_bones[parent]
+        child_bone.parent = parent_bone
+        child_bone.use_connect = True
+        return True
+    else:
+        print('%s or %s not exist' % (child , parent))
+        return False
+
 
 def maintain_volume(source_name):
+    amt = bpy.context.object
     utils.mode_o()
     #bpy.ops.object.mode_set(mode='POSE')
     amt = bpy.context.object
     source = amt.pose.bones[source_name]
-    source.constraints.new('MAINTAIN_VOLUME')
+    c = source.constraints.new('MAINTAIN_VOLUME')   
+    c.mode = 'SINGLE_AXIS'
+    c.volume = amt.scale[0]
+    
+
 
 def move_layer(bone_name,number):
     #まずは移動先をアクティブにする
@@ -174,6 +200,7 @@ def create_ik_modifier( first , second , number):
 #上腕、前腕、ポールベクター : ポールベクターの向きはワールドにする
 #---------------------------------------------------------------------------------------
 def create_polevector( first , second ,name):
+    root = utils.rigroot()
     utils.mode_e()
     #ポールベクター用ボーン生成
     #ＩＫルートボーンのＸ軸の方向につくる。距離はボーンの長さにする
@@ -198,6 +225,7 @@ def create_polevector( first , second ,name):
     b.head = Vector(jnt1.tail) - pos*len
     b.tail = b.head + Vector( (0, len/4 , 0 ))
 
+    parent(b,root)
     #ＩＫにポールベクターを設定する
     utils.mode_p()
     for const in jnt_ik.constraints:
@@ -403,6 +431,7 @@ def hook():
     #リグシェイプを読み込んでおかないとエラーになる
 #---------------------------------------------------------------------------------------
 def setup_rig_arm():
+    root = utils.rigroot()
     amt = bpy.context.object
     props = bpy.context.scene.kiarigtools_props        
     lr = props.setupik_lr
@@ -443,7 +472,7 @@ def setup_rig_arm():
         clav_med_ik1 = duplicator.duplicate( bones[1] ,'med.clav.ik1.' + lr, 'copy' , 1 , 'sel')
         clav_med_ik2 = duplicator.duplicate( bones[2] ,'med.clav.ik2.' + lr, 'copy' , 1 , 'sel')
         
-
+        
         bpy.ops.object.mode_set(mode='EDIT')
 
 
@@ -457,12 +486,14 @@ def setup_rig_arm():
         #parent(clav_med_ik0 , clav_ctr)
         #parent(clav_med_ik0 , clav_med_ik_base)
 
+        
         #IK骨に本骨をコンストレインする
         #constraint.constraint( arm_med_ik_base , bones[0] ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
-        constraint.constraint( bones[1] , arm_med_ik0 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
+        constraint.constraint( bones[1] , arm_med_ik0 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))        
         constraint.constraint( bones[2] , arm_med_ik1 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
 
         constraint.constraint( bones[0] , clav_ctr ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+        
         # constraint.constraint( bones[1] , arm_med_ik0 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
         # constraint.constraint( bones[2] , arm_med_ik1 ,  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
 
@@ -471,7 +502,7 @@ def setup_rig_arm():
         maintain_volume(bones[1])
         maintain_volume(bones[2])
 
-
+        
         #IK設定 2chain
         create_ik_modifier(arm_med_ik1, arm_ctr , 2)
         amt.pose.bones[arm_med_ik0].ik_stretch = 0.001
@@ -485,19 +516,35 @@ def setup_rig_arm():
         #ポールベクター設定
         pole_ctr = create_polevector(arm_med_ik0,arm_med_ik1,'ctr.arm.pole.' + lr)
 
-        bpy.ops.object.mode_set(mode='EDIT')
+        utils.mode_e()
 
         #親子付け(子供、親)            
         #背骨リグが設定されていたらpole_ctrを子供にする
         parent(arm_med , arm_ctr)
-        #parent(pole_ctr , arm_ctr)
-        parent(pole_ctr , 'ctr.chest.c')
-        
+        # if not parent(pole_ctr , 'ctr.chest.c'):
+        #     parent(pole_ctr , root)
 
+        #generate arm_switch if not exist. Next parent some node to it.
         arm_switch  = 'med.arm.switch.c'
-        if arm_switch in amt.data.edit_bones:
-            parent(arm_ctr , arm_switch)
+        if arm_switch not in [b.name for b in amt.data.edit_bones]:            
+            p = amt.data.edit_bones[bones[0]].parent
+            arm_switch = duplicator.duplicate( p.name , arm_switch , 'copy' , 1 , 'sel')
+            constraint.do_const('COPY_TRANSFORMS' , arm_switch , p.name , 'WORLD' )
 
+
+        utils.mode_e()
+        clav_base  = 'med.clav.base.c'
+        if clav_base not in [b.name for b in amt.data.edit_bones]:            
+            p = amt.data.edit_bones[bones[0]].parent
+            clav_base = duplicator.duplicate( p.name , clav_base , 'copy' , 1 , 'sel')
+            constraint.do_const('COPY_TRANSFORMS' , clav_base , p.name , 'WORLD' )
+
+
+        utils.mode_e()
+        parent(arm_ctr , arm_switch)
+        parent(pole_ctr , arm_switch)
+        parent(clav_med_ik0 , clav_base)
+        
         
         for bone in (arm_ctr , pole_ctr):
             amt.data.edit_bones[bone].show_wire = True
@@ -520,7 +567,7 @@ def setup_rig_arm():
         for bone in ( arm_ctr , pole_ctr):
             move_layer(bone,2)
 
-
+        
         #---------------------------------------------------------------------------------------
         #ストレッチプロパティを追加
         #---------------------------------------------------------------------------------------
@@ -624,9 +671,9 @@ def setupik_rig_leg():
     # if lib.exists:
     #     bones = lib.list_get_checked()
     #     num = lib.list_get_checked_number()
-    if bones != []:
+    if len(bones) == 5:
         #選択したもののコンストレインをすべて削除
-        edit.constraint_cleanup()
+        #edit.constraint_cleanup()
 
 
         #くるぶしの位置にコントローラを作成
@@ -693,6 +740,7 @@ def setupik_rig_leg():
         parent(leg_med_ik , heel_ctr)
         parent(heel_ctr , leg_ctr)
         parent(heel_med , leg_ctr)
+        #parent(pole_ctr , root)
 
         # for bone in (leg_med_ik , pole_ctr):
         #     amt.data.edit_bones[bone].show_wire = True
@@ -708,7 +756,9 @@ def setupik_rig_leg():
         #直接さわらない補助ボーン
         # for bone in ( heel_med ):
         #     move_layer(bone,8)
-        move_layer(heel_med,8)
+        for bone in ( heel_med , leg_med_ik0 ,leg_med_ik1 ):
+            move_layer(bone,8)
+
         #リグ
         bpy.context.object.data.layers[2] = True
         for bone in ( pole_ctr , heel_ctr ,leg_ctr ):
@@ -922,9 +972,264 @@ def setup_rig_spine():
         amt.pose.bones[hip_base_ctr].custom_shape_scale = 5.0            
         
 
+        #レイヤの設定
+        #直接さわらない補助ボーン
+        for bone in ( med_spine_c ,chest_med, chest_base_med ,arm_switch_med):
+            move_layer(bone,8)
+
+        #リグ
+        bpy.context.object.data.layers[2] = True
+        for bone in ( chest_ctr , chest_base_ctr, hip_base_ctr):
+            move_layer(bone,2)
+
+
+
         bpy.ops.object.mode_set(mode = 'EDIT')
         for bonename in (chest_ctr,hip_base_ctr,hip_ctr , chest_base_ctr):
             amt.data.edit_bones[bonename].show_wire = True
+
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.context.object.data.layers[2] = True
+
+#背骨リグのセットアップ
+#腰から胸までの骨を順番にリストに登録して実行
+def setup_rig_spine_v2():
+    bones = utils.bone.sort()
+    if bones != []:
+        amt = bpy.context.object
+               
+        #First , generate base and Hip controller.
+        base_ctr = duplicator.duplicate( bones[0] ,'ctr.base.c', 'head' ,4.0 , 'z')
+        hip_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.c', 'copy' ,1.0 , 'sel')
+        #hip_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.c', 'tail' ,2.0 , 'z')
+        constraint.do_const('COPY_TRANSFORMS' , bones[0], hip_ctr,  'WORLD')
+
+        #Second, Generate IK bone chain and tweak controller from Spine bones.
+        spinearray = []
+        tweakarray = []
+
+        for b in bones[1:]:
+            sp = duplicator.duplicate( b ,'med.%s.c' % b, 'copy' , 1 , 'sel')
+            tw = duplicator.duplicate( b ,'ctr.tweak.%s.c' % b, 'tail' , 1.5 , 'z')
+
+            parent(tw,sp)
+            spinearray.append(sp)
+            tweakarray.append(tw)
+
+
+        #connect spine chain
+        spine_num = len(spinearray)
+        for i in range( spine_num-1 ):
+            connect(spinearray[i + 1] , spinearray[i])
+
+
+        #IK controller
+        chest_ctr = duplicator.duplicate( bones[-1] ,'ctr.chest.c', 'tail' ,3.0 , 'z')
+        create_ik_modifier( spinearray[-1] , chest_ctr , spine_num )
+        
+        amt.pose.bones[chest_ctr].rotation_mode = 'XYZ'
+        amt.pose.bones[chest_ctr].lock_rotation[0] = True
+        amt.pose.bones[chest_ctr].lock_rotation[2] = True
+
+        amt.pose.bones[hip_ctr].lock_location[0] = True
+        amt.pose.bones[hip_ctr].lock_location[1] = True
+        amt.pose.bones[hip_ctr].lock_location[2] = True
+
+
+        constraint.do_const('COPY_LOCATION' , spinearray[0], hip_ctr,  'WORLD' ,(True,True,True) , (False,False,False) , 1.0)
+        
+        inf = 1.0/spine_num
+        for i in range( spine_num ):
+            constraint.do_const( 'COPY_ROTATION' , bones[i+1], chest_ctr, 'LOCAL' ,(False,True,False) , (False,False,False) , inf)
+            #constraint.constraint( bones[ i+1 ], spinearray[i], 'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+            create_ik_modifier(bones[ i+1 ] , tweakarray[i] ,1)
+
+        utils.mode_p()
+
+        for b in (chest_ctr , base_ctr ,hip_ctr , *tweakarray):
+            amt.pose.bones[b].custom_shape = bpy.data.objects['rig.shape.circle']
+
+        #レイヤの設定
+        #直接さわらない補助ボーン
+        for bone in spinearray:
+            move_layer(bone,8)
+
+        #parent
+        utils.mode_e()
+        parent(hip_ctr,base_ctr)
+        parent(chest_ctr,base_ctr)
+        for bonename in (chest_ctr , base_ctr ,hip_ctr):
+            amt.data.edit_bones[bonename].show_wire = True
+
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.context.object.data.layers[2] = True
+
+
+def setup_rig_spine_v2_back():
+    bones = utils.bone.sort()
+    if bones != []:
+        amt = bpy.context.object
+               
+        #First , generate base and Hip controller.
+        base_ctr = duplicator.duplicate( bones[0] ,'ctr.base.c', 'head' ,2.0 , 'z')
+        hip_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.c', 'copy' ,1.0 , 'sel')
+        #med_spine_base = duplicator.duplicate( bones[0] ,'med.spine.base.c', 'head' ,1.0 , 'z')
+
+        #constraint.do_const('COPY_LOCATION' , med_spine_base, hip_ctr,  'WORLD' ,(True,True,True) , (False,False,False) , 1.0)
+        #constraint.do_const('COPY_ROTATION' , bones[0], hip_ctr,  'WORLD' ,(True,True,True) , (False,False,False))
+        constraint.do_const('COPY_TRANSFORMS' , bones[0], hip_ctr,  'WORLD')
+        #constraint.do_const('COPY_TRANSFORMS' , bones[0], base_ctr,  'WORLD' )
+        #constraint.constraint( bones[0], hip_ctr, 'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+
+        #Second, Generate IK bone chain from Spine bones.
+        spinearray = []
+        for b in bones[1:]:
+            spinearray.append(duplicator.duplicate( b ,'med.%s.c' % b, 'copy' , 1 , 'sel'))
+
+        #connect spine chain
+        spine_num = len(spinearray)
+        for i in range( spine_num-1 ):
+            connect(spinearray[i + 1] , spinearray[i])
+
+        #parent(spinearray[0] , med_spine_base )
+
+        #IK controller
+        chest_ctr = duplicator.duplicate( bones[-1] ,'ctr.chest.c', 'tail' ,2.0 , 'z')
+        create_ik_modifier( spinearray[-1] , chest_ctr , spine_num )
+        #bpy.context.object.pose.bones["ctr.chest.c"].rotation_mode = 'XYZ'
+        
+        amt.pose.bones[chest_ctr].rotation_mode = 'XYZ'
+        amt.pose.bones[chest_ctr].lock_rotation[0] = True
+        amt.pose.bones[chest_ctr].lock_rotation[2] = True
+
+        amt.pose.bones[hip_ctr].lock_location[0] = True
+        amt.pose.bones[hip_ctr].lock_location[1] = True
+        amt.pose.bones[hip_ctr].lock_location[2] = True
+
+
+        constraint.do_const('COPY_LOCATION' , spinearray[0], hip_ctr,  'WORLD' ,(True,True,True) , (False,False,False) , 1.0)
+        
+        inf = 1.0/spine_num
+        for i in range( spine_num ):
+            constraint.do_const( 'COPY_ROTATION' , spinearray[i], chest_ctr, 'LOCAL' ,(False,True,False) , (False,False,False) , inf)
+            constraint.constraint( bones[ i+1 ], spinearray[i], 'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+            # constraint.constraint( bones[ i+1 ], spinearray[i], 'COPY_ROTATION' , 'LOCAL' ,(True,False,True) , (False,False,False))
+            # constraint.constraint( bones[ i+1 ], chest_ctr, 'COPY_ROTATION' , 'LOCAL' ,(False,True,False) , (False,False,False))
+        
+        #utils.mode_e()
+
+        #シェイプ変更
+        utils.mode_p()
+
+        # for bonename in (chest_ctr,hip_base_ctr,hip_ctr , chest_base_ctr):
+        #     amt.pose.bones[bonename].custom_shape = bpy.data.objects['rig.shape.circle_z']
+        for b in (chest_ctr , base_ctr ,hip_ctr):
+            amt.pose.bones[b].custom_shape = bpy.data.objects['rig.shape.circle']
+
+        #レイヤの設定
+        #直接さわらない補助ボーン
+        for bone in spinearray:
+            move_layer(bone,8)
+
+        #parent
+        utils.mode_e()
+        parent(hip_ctr,base_ctr)
+        parent(chest_ctr,base_ctr)
+        for bonename in (chest_ctr , base_ctr ,hip_ctr):
+            amt.data.edit_bones[bonename].show_wire = True
+
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.context.object.data.layers[2] = True
+
+
+        # #IKジョイントに背骨の一部を回転拘束 1,2,最後を除く骨
+        # for bone in bones[2:-1]:
+        #     c = constraint.constraint( bone , med_spine_c , 'COPY_ROTATION' , 'LOCAL' ,(True,True,True) , (False,False,False))
+        #     c.influence = 0.65
+
+        # #胸IKコントローラ作成
+        # chest_med = duplicator.duplicate( bones[-1] ,'med.chest.c', 'copy' ,0.25 , 'sel')
+        # chest_ctr = duplicator.duplicate( bones[-1] ,'ctr.chest.c', 'head' ,0.5 , 'y')
+        # constraint.constraint(bones[-1] ,chest_med ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+
+        # create_ik_modifier( med_spine_c , chest_ctr , 1)
+
+        # #背骨のベースコントローラを作成
+        # chest_base_med = duplicator.duplicate( bones[1] ,'med.chest.base.c', 'copy' ,0.25 , 'sel')
+        # chest_base_ctr = duplicator.duplicate( bones[1] ,'ctr.chest.base.c', 'head' ,0.5 , 'y')
+        # constraint.constraint(bones[1] ,chest_base_med ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+        
+        # #腰の回転コントローラ
+        # hip_med = duplicator.duplicate( bones[0] ,'med.hip.c', 'copy' ,0.25 , 'sel')
+        # hip_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.c', 'head' ,0.5 , 'y')
+        # constraint.constraint(bones[0] ,hip_med ,  'COPY_ROTATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+
+        # #腰のベース
+        # hip_base_med = duplicator.duplicate( bones[0] ,'med.hip.base.c', 'copy' ,0.25 , 'sel')
+        # hip_base_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.base.c', 'head' ,0.5 , 'y')
+        # constraint.constraint(bones[0] ,hip_base_med ,  'COPY_LOCATION' , 'WORLD' ,(True,True,True) , (False,False,False))
+
+        # #腕のスイッチノード
+        # #もし腕のIKコントローラがあれば子供にする
+        # #medを胸骨にワールドでコンストレイン。ctrをワールドに合わせるのでmedの子供にする。
+        # arm_switch_med = duplicator.duplicate( bones[-1] ,'med.arm.switch.c', 'copy' ,0.25 , 'sel')
+        # arm_switch_ctr = duplicator.duplicate( bones[-1] ,'ctr.arm.switch.c', 'head' ,0.5 , 'y')
+        # constraint.constraint( arm_switch_med ,bones[-1],  'COPY_TRANSFORMS' , 'WORLD' ,(True,True,True) , (False,False,False))
+
+        # #背骨のひねりコンストレイン
+        # for bone in bones[2:-1]:
+        #     c = constraint.constraint_transformation(bone ,chest_ctr ,  'TRANSFORM' , 'LOCAL' ,'ROTATION', 'ROTATION' , ('Mute','Z','Mute'))
+        #     c.influence = 0.33
+
+
+        # #親子付け
+        # bpy.ops.object.mode_set(mode='EDIT')
+
+        # parent(med_spine_c , chest_base_ctr)
+        # parent(chest_ctr , chest_base_ctr)
+        # parent(chest_med , chest_ctr)
+        # parent(chest_base_ctr , hip_base_ctr)
+        # parent(chest_base_med , chest_base_ctr)
+        # parent(hip_med , hip_ctr)
+        # parent(hip_ctr , hip_base_ctr)
+        # parent(hip_base_med , hip_base_ctr)
+        # parent(arm_switch_ctr , arm_switch_med)
+
+
+        # #腕のIKコントローラが存在するならarm_switch_ctrの子供にする
+        # for b in ('ctr.arm.l' , 'ctr.arm.r'):
+        #     if b in amt.data.edit_bones:
+        #         amt.data.edit_bones[b].parent = amt.data.edit_bones[arm_switch_ctr]
+
+
+        # amt.pose.bones[hip_base_ctr].custom_shape = bpy.data.objects['rig.shape.circle_z']
+        # amt.pose.bones[hip_base_ctr].custom_shape_scale = 8.0            
+
+        # amt.pose.bones[hip_ctr].custom_shape = bpy.data.objects['rig.shape.circle.z.down']
+        # amt.pose.bones[hip_base_ctr].custom_shape_scale = 5.0 
+
+        # amt.pose.bones[chest_base_ctr].custom_shape = bpy.data.objects['rig.shape.circle.z.up']
+        # amt.pose.bones[hip_base_ctr].custom_shape_scale = 5.0            
+        
+
+        # #レイヤの設定
+        # #直接さわらない補助ボーン
+        # for bone in ( med_spine_c ,chest_med, chest_base_med ,arm_switch_med):
+        #     move_layer(bone,8)
+
+        # #リグ
+        # bpy.context.object.data.layers[2] = True
+        # for bone in ( chest_ctr , chest_base_ctr, hip_base_ctr):
+        #     move_layer(bone,2)
+
+
+
+        # bpy.ops.object.mode_set(mode = 'EDIT')
+        # for bonename in (chest_ctr,hip_base_ctr,hip_ctr , chest_base_ctr):
+        #     amt.data.edit_bones[bonename].show_wire = True
+
+        # bpy.ops.object.mode_set(mode='POSE')
+        # bpy.context.object.data.layers[2] = True
 
 
 
@@ -1041,3 +1346,7 @@ def setup_rig_neck():
         # bpy.ops.object.mode_set(mode = 'EDIT')
         # for bonename in (chest_ctr,hip_base_ctr,hip_ctr , chest_base_ctr):
         #     amt.data.edit_bones[bonename].show_wire = True
+
+
+def setup_ue():
+    leg_ = ('thigh_l' , )

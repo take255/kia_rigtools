@@ -354,9 +354,9 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
         box.operator("kiarigtools.rigshape_append")
 
 
-        box = row.box()
+        col = row.column()
+        box = col.box()
         box.label(text = 'setup ik')
-
         row1 = box.row()
         row1.operator("kiarigtools.setupik_ik")
         row1.prop(props, "setupik_number")
@@ -365,11 +365,17 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
         box.operator("kiarigtools.setupik_spline_ik")
         box.operator("kiarigtools.setupik_hook")
 
+        box = col.box()
+        box.label(text = 'setup for UE')
+        box.operator("kiarigtools.setupik_ue")
+
+
         box = row.box()
         box.label(text = 'body')
         box.operator("kiarigtools.setupik_rig_arm")
         box.operator("kiarigtools.setupik_rig_leg")
         box.operator("kiarigtools.setupik_rig_spine")
+        box.operator("kiarigtools.setupik_rig_spine_v2")
         box.operator("kiarigtools.setupik_rig_neck")
         box.prop(props, "setupik_lr", expand=True)
 
@@ -453,6 +459,12 @@ class KIARIGTOOLS_MT_edittools(bpy.types.Operator):
         row = box.row()
         row.operator("kiarigtools.edit_constraint_cleanup")
         row.operator("kiarigtools.edit_constraint_empty_cleanup")
+
+        box = col_root.box()
+        box.label(text = 'other commands')
+        row = box.row()
+        row.operator("kiarigtools.edit_connect_chain")
+        row.operator("kiarigtools.edit_delete_rig")
 
 
 #---------------------------------------------------------------------------------------
@@ -577,6 +589,14 @@ class KIARIGTOOLS_OT_setupik_rig_spine(bpy.types.Operator):
         setup_ik.setup_rig_spine()
         return {'FINISHED'}
 
+class KIARIGTOOLS_OT_setupik_rig_spine_v2(bpy.types.Operator):
+    """背骨のリグの自動設定\n腰から胸までの骨を順番にリストに登録して実行"""
+    bl_idname = "kiarigtools.setupik_rig_spine_v2"
+    bl_label = "spine v2"
+    def execute(self, context):
+        setup_ik.setup_rig_spine_v2()
+        return {'FINISHED'}
+
 class KIARIGTOOLS_OT_setupik_rig_neck(bpy.types.Operator):
     """首骨のリグの自動設定\n胸の骨、首、頭までの骨を順番にリストに登録して実行"""    
     bl_idname = "kiarigtools.setupik_rig_neck"
@@ -584,6 +604,26 @@ class KIARIGTOOLS_OT_setupik_rig_neck(bpy.types.Operator):
     def execute(self, context):
         setup_ik.setup_rig_neck()
         return {'FINISHED'}
+
+class KIARIGTOOLS_OT_setupik_rig_neck_v2(bpy.types.Operator):
+    """首骨のリグの自動設定\n胸の骨、首、頭までの骨を順番にリストに登録して実行"""    
+    bl_idname = "kiarigtools.setupik_rig_neck_v2"
+    bl_label = "neck v2"
+    def execute(self, context):
+        setup_ik.setup_rig_neck_v2()
+        return {'FINISHED'}
+
+
+#setup Unreal Engine Rig
+class KIARIGTOOLS_OT_setupik_ue(bpy.types.Operator):
+    """setup Unreal Engine Rig"""    
+    bl_idname = "kiarigtools.setupik_ue"
+    bl_label = "create ue rig"
+    def execute(self, context):
+        setup_ik.setup_ue()
+        return {'FINISHED'}
+
+
 
 
 #---------------------------------------------------------------------------------------
@@ -736,6 +776,25 @@ class KIARIGTOOLS_OT_edit_constraint_cleanup_empty(bpy.types.Operator):
         edit.constraint_cleanup_empty()
         return {'FINISHED'}
 
+#---------------------------------------------------------------------------------------
+# other tools
+#---------------------------------------------------------------------------------------
+class KIARIGTOOLS_OT_edit_connect_chain(bpy.types.Operator):
+    """First,select some bones, then execute this command."""
+    bl_idname = "kiarigtools.edit_connect_chain"
+    bl_label = "connect chain"
+    def execute(self, context):
+        edit.connect_chain()
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_edit_delete_rig(bpy.types.Operator):
+    """Delete automaticaly root_rig and it's children ."""
+    bl_idname = "kiarigtools.edit_delete_rig"
+    bl_label = "delete rig"
+    def execute(self, context):
+        edit.delete_rig()
+        return {'FINISHED'}
+
 
 classes = (
     KIARIGTOOLS_Props_OA,
@@ -760,7 +819,11 @@ classes = (
     KIARIGTOOLS_OT_setupik_rig_arm,
     KIARIGTOOLS_OT_setupik_rig_leg,
     KIARIGTOOLS_OT_setupik_rig_spine,
+    KIARIGTOOLS_OT_setupik_rig_spine_v2,
     KIARIGTOOLS_OT_setupik_rig_neck,
+    KIARIGTOOLS_OT_setupik_rig_neck_v2,
+
+    KIARIGTOOLS_OT_setupik_ue,
 
     #edit
     KIARIGTOOLS_OT_edit_length_uniform,
@@ -779,12 +842,18 @@ classes = (
     KIARIGTOOLS_OT_edit_roll_degree,
     KIARIGTOOLS_OT_edit_align_roll_global,
 
+    #other tools
+    KIARIGTOOLS_OT_edit_connect_chain,
+    KIARIGTOOLS_OT_edit_delete_rig,
+
     #constraint
     KIARIGTOOLS_OT_edit_constraint_cleanup,
     KIARIGTOOLS_OT_edit_constraint_cleanup_empty,
 
     #rig_ctr
     KIARIGTOOLS_OT_rigctr_arm,
+
+    
 )
 
 def register():
