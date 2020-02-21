@@ -21,6 +21,14 @@ imp.reload(duplicator)
 imp.reload(constraint)
 imp.reload(edit)
 
+#---------------------------------------------------------------------------------------
+#Confirm that rig shape scene exists
+#---------------------------------------------------------------------------------------
+def confirm_rigshape():
+    if not utils.scene.IsExistence:
+        prefs = bpy.context.preferences.addons[__name__].preferences
+        cmd.rigshape_append( prefs.shape_path )
+
 
 #---------------------------------------------------------------------------------------
 #IKセットアップ
@@ -224,6 +232,7 @@ def create_polevector( first , second ,name):
     b = amt.data.edit_bones.new(name)
     b.head = Vector(jnt1.tail) - pos*len
     b.tail = b.head + Vector( (0, len/4 , 0 ))
+    b.use_deform = False
 
     parent(b,root)
     #ＩＫにポールベクターを設定する
@@ -546,7 +555,7 @@ def setup_rig_arm():
         parent(clav_med_ik0 , clav_base)
         
         
-        for bone in (arm_ctr , pole_ctr):
+        for bone in (arm_ctr , pole_ctr ,clav_ctr):
             amt.data.edit_bones[bone].show_wire = True
 
 
@@ -970,7 +979,12 @@ def setup_rig_spine():
 
         amt.pose.bones[chest_base_ctr].custom_shape = bpy.data.objects['rig.shape.circle.z.up']
         amt.pose.bones[hip_base_ctr].custom_shape_scale = 5.0            
-        
+
+
+        for bone in (chest_ctr , hip_base_ctr ,hip_ctr ,chest_base_ctr):
+            amt.data.edit_bones[bone].show_wire = True
+
+
 
         #レイヤの設定
         #直接さわらない補助ボーン

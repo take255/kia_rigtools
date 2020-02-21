@@ -19,7 +19,7 @@ UNIT_VECTOR={
 #ボーンをコピーして新ボーンの名前を返す
 def duplicate(bonename , new_name , mode ,length_ratio , direction):
     amt = bpy.context.object
-    bpy.ops.object.mode_set(mode='EDIT')
+    utils.mode_e()
     root = utils.rigroot()
 
     bone = amt.data.edit_bones[bonename]
@@ -33,10 +33,10 @@ def duplicate(bonename , new_name , mode ,length_ratio , direction):
 
     #ボーン生成
     target = amt.data.edit_bones.new( new_name )
-
     target.parent = root
-    #bonearray.append([bone.name,target.name])
+    target.use_deform = False
 
+    #new_name = target.name
 
     #radioでボーンの位置や姿勢を決める
     #Length 選択された骨の長さ
@@ -62,6 +62,11 @@ def duplicate(bonename , new_name , mode ,length_ratio , direction):
         else:
             target.tail = bonetail + vec*length * length_ratio
 
+
+    #utils.mode_p()
+    #amt.data.bones[new_name].use_deform = False
+    
+    #utils.mode_e()
     return target.name
 
 def constraint(source_name , target_name , const_type , space ,axis_x , axis_y , axis_z):

@@ -554,6 +554,17 @@ def delete_rig():
 
     amt = bpy.context.object
     root = 'rig_root'
+
+
+    #delete all driver
+    utils.mode_p()
+    for b in amt.pose.bones:
+        b.driver_remove("ik_stretch")
+        for c in b.constraints:
+            c.driver_remove("influence")
+            b.constraints.remove( c )
+
+
     utils.mode_e()
     bpy.ops.armature.select_all(action='DESELECT')
 
@@ -561,6 +572,7 @@ def delete_rig():
     for b in amt.data.edit_bones:
         if delete_rig_loop( b , root ):
             result.append(b)
+
 
     for b in result:
         b.select = True
