@@ -1,6 +1,7 @@
 import bpy
 import imp
 from bpy.props import ( FloatProperty , EnumProperty ,BoolProperty )
+import math
 #from bpy.types import PropertyGroup
 
 
@@ -96,6 +97,26 @@ def do_const(*args):
     
     return c
 
+def do_track_to(*args):
+    amt = bpy.context.object
+    bpy.ops.object.mode_set(mode='POSE')
+
+    const_type = 'TRACK_TO'
+    source = amt.pose.bones[args[0]]
+    target = args[1]
+    space  = args[2]
+
+    
+    c =source.constraints.new(const_type)
+    c.target = amt
+    c.subtarget = target
+    c.target_space = space
+    c.owner_space = space
+    c.use_target_z = True
+    c.up_axis = 'UP_Z'
+
+
+    return c
 #コンストレインを返す
 #map_form , map_to = lOCATION or ROTATION or SCALE
 #
@@ -143,6 +164,62 @@ def constraint_transformation(source_name , target_name , const_type , space , m
 
         c.map_to_y_from = transform[2]
     return c
+
+
+# source_name , 0:target_name , 1:space , 2:map_from , 3:map_to , 4:map_to_from , 5:map , 6:range_from , 7:range_to , 8:inf
+# 9:from_rotation_mode , 10:to_euler_order
+#
+# map_from: 'LOCATION' , 'ROTATION' , 'SCALE'
+# map_to: 'LOCATION' , 'ROTATION' , 'SCALE'
+#
+# map : [map_to_x_from , map_to_y_from . map_to_z_from] // 'X' , 'Y' , 'Z'
+#
+# range_from [min_x , max_x , min_y , max_y , min_z , max_z ] 
+# range_to [min_x , max_x , min_y , max_y , min_z , max_z ] 
+# from_rotation_mode = 'YXZ'
+# to_euler_order = 'YXZ'
+
+
+def do_transformation(*args):
+    bpy.ops.object.mode_set(mode='POSE')
+    amt = bpy.context.object
+    source = amt.pose.bones[args[0]]
+    target = args[1]
+
+    c =source.constraints.new('TRANSFORM')
+    c.target = amt
+    c.subtarget = target
+    c.target_space = args[2]
+    c.owner_space = args[2]
+
+ 
+    c.map_from = args[3]
+    c.map_to = args[4]
+
+    c.map_to_x_from = args[5][0]
+    c.map_to_y_from = args[5][1]
+    c.map_to_z_from = args[5][2]
+
+    if args[3] == 'ROTATION':
+        c.from_min_x_rot = math.radians(args[6][0])
+        c.from_max_x_rot = math.radians(args[6][1])
+        c.from_min_y_rot = math.radians(args[6][2])
+        c.from_max_y_rot = math.radians(args[6][3])
+        c.from_min_z_rot = math.radians(args[6][4])
+        c.from_max_z_rot = math.radians(args[6][5])
+
+        c.to_min_x_rot = math.radians(args[7][0])
+        c.to_max_x_rot = math.radians(args[7][1])
+        c.to_min_y_rot = math.radians(args[7][2])
+        c.to_max_y_rot = math.radians(args[7][3])
+        c.to_min_z_rot = math.radians(args[7][4])
+        c.to_max_z_rot = math.radians(args[7][5])
+
+    c.influence = args[8]
+    c.from_rotation_mode = args[9]
+    c.to_euler_order = args[10]
+    return c
+
 
 # class ConstraintTools(bpy.types.Operator):
 #     bl_idname = "rigtool.constrainttools"

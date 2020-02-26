@@ -15,7 +15,6 @@ imp.reload(utils)
 #---------------------------------------------------------------------------------------
 #リグシェイプ
 #---------------------------------------------------------------------------------------
-
 def rigshape_change_scale(self,context):
     props = bpy.context.scene.kiarigtools_props        
 
@@ -52,3 +51,72 @@ def rigshape_append(filepath):
 
     utils.sceneActive(current_scene_name)
 
+# make rig shepe size the same. It makes active bone  basis.
+def make_the_same_size():
+    selected = utils.bone.get_selected_bones()
+    act = utils.bone.get_active_bone()
+
+    basesize = act.length * act.custom_shape_scale
+    for b in selected:
+        b.custom_shape_scale = basesize/b.length
+        #print(b.length)
+
+
+#---------------------------------------------------------------------------------------
+#Change rig control value
+#---------------------------------------------------------------------------------------
+RIGARRAY = ('arm','leg')
+PROPARRAY = {
+    # 'arm': ('ikfk','stretch'),
+    # 'leg': ('ikfk','stretch')
+    'arm': ('ikfk','clav','hand','stretch'),
+    'leg': ('ikfk','foot','stretch')
+
+}
+
+def rig_change_ctr(self,context):
+    amt = bpy.context.object
+    props = bpy.context.scene.kiarigtools_props
+
+    for r in RIGARRAY:
+        for p in PROPARRAY[r]:
+            for lr in ('l' , 'r'):
+                
+                ctr = 'ctr.%s.%s' % ( r , lr )
+
+                #if ctr in [o.name for o in bpy.data.objects]:
+                if ctr in [b.name for b in amt.pose.bones]:
+                    prop ='%s.%s' % (p,lr)
+                    prop_val = '%s_%s_%s' % (r,p,lr)
+                    #print(ctr , prop , prop_val)
+                    exec('amt.pose.bones[\'%s\'][\'%s\'] = props.%s' % ( ctr , prop , prop_val ) ) #amt.pose.bones[ctr.arm.l]['ikfk.l'] = props.arm_ikfk_l'
+                    exec('amt.pose.bones[\'%s\'].matrix = amt.pose.bones[\'%s\'].matrix' % (ctr,ctr))  # There is a need to update matrix. 
+ 
+    bpy.context.view_layer.update()
+
+
+def modify_rig_control_panel( rig , lr , propname , value ):
+    amt = bpy.context.object
+    props = bpy.context.scene.kiarigtools_props
+
+    ctr = 'ctr.%s.%s' % ( rig , lr )
+
+    if ctr in [b.name for b in amt.pose.bones]:    
+        prop = '%s.%s' % ( propname , lr )
+        prop_val = '%s_%s_%s' % ( rig , propname , lr )
+        print( ctr , prop , prop_val )
+        exec('props.%s = %f' % ( prop_val ,value ) ) #amt.pose.bones[ctr.arm.l]['ikfk.l'] = props.arm_ikfk_l'
+        exec('amt.pose.bones[\'%s\'][\'%s\'] = %f ' % ( ctr , prop , value ) ) #amt.pose.bones[ctr.arm.l]['ikfk.l'] = props.arm_ikfk_l'
+    
+
+def modify_rig_control_panel_key( rig , lr , propname ):
+    amt = bpy.context.object
+    #props = bpy.context.scene.kiarigtools_props
+
+    ctr = 'ctr.%s.%s' % ( rig , lr )
+    prop = '%s.%s' % ( propname , lr )
+
+    bone = amt.pose.bones[ ctr ]
+    bone.keyframe_insert(data_path='["%s"]' % prop)
+
+    bpy.context.view_layer.update()

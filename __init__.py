@@ -157,15 +157,23 @@ class KIARIGTOOLS_Props_OA(PropertyGroup):
 
     #リグのコントロール
     armature_name : StringProperty( name = 'armature' )
-    arm_stretch_l : FloatProperty(  name = "l",min=0.001 , max=1.0, default=1.0)
-    arm_stretch_r : FloatProperty( name = "r", min=0.001 , max=1.0, default=1.0)
-    arm_ikfk_l : FloatProperty( name = "l", min=0.0 , max=1.0, default=1.0)
-    arm_ikfk_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0)
 
-    leg_stretch_l : FloatProperty(  name = "l",min=0.001 , max=1.0, default=1.0)
-    leg_stretch_r : FloatProperty( name = "r", min=0.001 , max=1.0, default=1.0)
-    leg_ikfk_l : FloatProperty( name = "l", min=0.0 , max=1.0, default=1.0)
-    leg_ikfk_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0)
+
+    for r in cmd.RIGARRAY:
+        for p in cmd.PROPARRAY[r]:
+            for lr in ('l' , 'r'):
+                prop_val = '%s_%s_%s' % (r,p,lr)
+                exec('%s : FloatProperty(  name = \"%s\",min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )' % ( prop_val ,lr ) )
+
+    # arm_stretch_l : FloatProperty(  name = "l",min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+    # arm_stretch_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+    # arm_ikfk_l : FloatProperty( name = "l", min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+    # arm_ikfk_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+
+    # leg_stretch_l : FloatProperty(  name = "l",min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+    # leg_stretch_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+    # leg_ikfk_l : FloatProperty( name = "l", min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
+    # leg_ikfk_r : FloatProperty( name = "r", min=0.0 , max=1.0, default=1.0 , update = cmd.rig_change_ctr )
 
 
 
@@ -239,8 +247,7 @@ class KIARIGTOOLS_MT_rigcontrolpanel(bpy.types.Operator):
         #         if val != None:
         #             props.arm_ikfk_r = val
 
-
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self , width=400)
 
 
     def draw(self, context):
@@ -253,11 +260,45 @@ class KIARIGTOOLS_MT_rigcontrolpanel(bpy.types.Operator):
 
         box.prop(props, "armature_name")
         row  = col.column()
-        rig_ui( props ,  row , 'arm' , 'l')
-        rig_ui( props ,  row , 'leg' , 'l')
+        # rig_ui( props ,  row , 'arm' , 'l')
+        # rig_ui( props ,  row , 'leg' , 'l')
 
-        
-def rig_ui( props , row , parts , lr ):
+        box = row.box()
+        row = box.row()
+
+        for r in cmd.RIGARRAY:
+            box1 = row.box()
+            box1.label(text = r )
+
+            for p in cmd.PROPARRAY[ r ]:
+                box2 = box1.box()
+                box2.label(text = p )
+
+                for lr in ('l' , 'r'):
+                    propname = "%s_%s_%s"  % (r , p , lr)
+                    col = box2.column()
+                    row1 = col.row()
+                    row1.prop(props, propname )
+
+                    cmd1 = row1.operator("kiarigtools.modify_rig_control_panel",icon = 'TRIA_DOWN')
+                    cmd1.rig = r
+                    cmd1.lr = lr
+                    cmd1.propname = p
+                    cmd1.value = 0.0
+
+                    cmd1 = row1.operator("kiarigtools.modify_rig_control_panel",icon = 'TRIA_UP')
+                    cmd1.rig = r
+                    cmd1.lr = lr
+                    cmd1.propname = p
+                    cmd1.value = 100.0
+
+                    cmd1 = row1.operator("kiarigtools.modify_rig_control_panel_key",icon = 'REC')
+                    cmd1.rig = r
+                    cmd1.lr = lr
+                    cmd1.propname = p
+
+
+def rig_ui_( props , row , parts , lr ):
     #row = box.row()
     box1 = row.box()
     box1.label(text = '%s' % parts )
@@ -352,7 +393,8 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
         box.operator("kiarigtools.rigshape_revert",icon = 'BONE_DATA')
         box.prop(props, "rigshape_scale", icon='BLENDER', toggle=True)
         box.operator("kiarigtools.rigshape_append")
-
+        box.operator("kiarigtools.make_the_same_size")
+    
 
         col = row.column()
         box = col.box()
@@ -376,7 +418,9 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
         box.operator("kiarigtools.setupik_rig_leg")
         box.operator("kiarigtools.setupik_rig_spine")
         box.operator("kiarigtools.setupik_rig_spine_v2")
+        box.operator("kiarigtools.setupik_rig_spine_v3")
         box.operator("kiarigtools.setupik_rig_neck")
+        box.operator("kiarigtools.setupik_rig_neck_v2")
         box.prop(props, "setupik_lr", expand=True)
 
 
@@ -530,6 +574,16 @@ class KIARIGTOOLS_OT_rigshape_append(bpy.types.Operator):
         cmd.rigshape_append( prefs.shape_path )
         return {'FINISHED'}
 
+#Make selected rig shape the same size. The active is the size basis.
+class KIARIGTOOLS_OT_make_the_same_size(bpy.types.Operator):
+    """Make selected rig shape the same size. The active is the size basis."""
+    bl_idname = "kiarigtools.make_the_same_size"
+    bl_label = "same size"
+    def execute(self, context):
+        cmd.make_the_same_size()
+        return {'FINISHED'}
+
+
 #---------------------------------------------------------------------------------------
 # setup ik
 #---------------------------------------------------------------------------------------
@@ -595,6 +649,14 @@ class KIARIGTOOLS_OT_setupik_rig_spine_v2(bpy.types.Operator):
     bl_label = "spine v2"
     def execute(self, context):
         setup_ik.setup_rig_spine_v2()
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_setupik_rig_spine_v3(bpy.types.Operator):
+    """背骨のリグの自動設定\n腰から胸までの骨を順番にリストに登録して実行"""
+    bl_idname = "kiarigtools.setupik_rig_spine_v3"
+    bl_label = "spine v3"
+    def execute(self, context):
+        setup_ik.setup_rig_spine_v3()
         return {'FINISHED'}
 
 class KIARIGTOOLS_OT_setupik_rig_neck(bpy.types.Operator):
@@ -746,7 +808,7 @@ class KIARIGTOOLS_OT_edit_align_roll_global(bpy.types.Operator):
         return {'FINISHED'}
 
 #---------------------------------------------------------------------------------------
-# rig tool
+# rig control panel
 #---------------------------------------------------------------------------------------
 class KIARIGTOOLS_OT_rigctr_arm(bpy.types.Operator):
     """リグ"""
@@ -754,6 +816,29 @@ class KIARIGTOOLS_OT_rigctr_arm(bpy.types.Operator):
     bl_label = ""
     def execute(self, context):
         edit.align_roll_global
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_modify_rig_control_panel(bpy.types.Operator):
+    """modify rig control panel value"""
+    bl_idname = "kiarigtools.modify_rig_control_panel"
+    bl_label = ""
+    rig : StringProperty()
+    lr : StringProperty()
+    propname : StringProperty()
+    value : FloatProperty()
+    def execute(self, context):
+        cmd.modify_rig_control_panel( self.rig , self.lr , self.propname , self.value )
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_modify_rig_control_panel_key(bpy.types.Operator):
+    """keying rig custom property"""
+    bl_idname = "kiarigtools.modify_rig_control_panel_key"
+    bl_label = ""
+    rig : StringProperty()
+    lr : StringProperty()
+    propname : StringProperty()
+    def execute(self, context):
+        cmd.modify_rig_control_panel_key( self.rig , self.lr , self.propname)
         return {'FINISHED'}
 
 
@@ -775,6 +860,7 @@ class KIARIGTOOLS_OT_edit_constraint_cleanup_empty(bpy.types.Operator):
     def execute(self, context):
         edit.constraint_cleanup_empty()
         return {'FINISHED'}
+
 
 #---------------------------------------------------------------------------------------
 # other tools
@@ -805,10 +891,11 @@ classes = (
     KIARIGTOOLS_MT_edittools,
     KIARIGTOOLS_MT_rigcontrolpanel,
 
+    #RigShape-Related
     KIARIGTOOLS_PT_rigshape_selector,
-
     KIARIGTOOLS_OT_rigshape_revert,
     KIARIGTOOLS_OT_rigshape_append,
+    KIARIGTOOLS_OT_make_the_same_size,
     
 
     KIARIGTOOLS_OT_setupik_ik,
@@ -820,6 +907,7 @@ classes = (
     KIARIGTOOLS_OT_setupik_rig_leg,
     KIARIGTOOLS_OT_setupik_rig_spine,
     KIARIGTOOLS_OT_setupik_rig_spine_v2,
+    KIARIGTOOLS_OT_setupik_rig_spine_v3,
     KIARIGTOOLS_OT_setupik_rig_neck,
     KIARIGTOOLS_OT_setupik_rig_neck_v2,
 
@@ -850,9 +938,10 @@ classes = (
     KIARIGTOOLS_OT_edit_constraint_cleanup,
     KIARIGTOOLS_OT_edit_constraint_cleanup_empty,
 
-    #rig_ctr
+    #rig control panel
     KIARIGTOOLS_OT_rigctr_arm,
-
+    KIARIGTOOLS_OT_modify_rig_control_panel,
+    KIARIGTOOLS_OT_modify_rig_control_panel_key
     
 )
 
