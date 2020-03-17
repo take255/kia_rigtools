@@ -256,9 +256,13 @@ class KIARIGTOOLS_MT_rigcontrolpanel(bpy.types.Operator):
         col = self.layout.column(align=False)
 
         box = col.box()
-        box.label(text = 'rigshape')
+        #box.label(text = 'rigtool')
 
         box.prop(props, "armature_name")
+        row = box.row()
+        row.operator("kiarigtools.posetool_copy_matrix",icon = 'OBJECT_DATA')
+        row.operator("kiarigtools.posetool_paste_matrix",icon = 'OBJECT_DATA')
+
         row  = col.column()
         # rig_ui( props ,  row , 'arm' , 'l')
         # rig_ui( props ,  row , 'leg' , 'l')
@@ -841,6 +845,23 @@ class KIARIGTOOLS_OT_modify_rig_control_panel_key(bpy.types.Operator):
         cmd.modify_rig_control_panel_key( self.rig , self.lr , self.propname)
         return {'FINISHED'}
 
+#pose tool : matrix copy paste
+class KIARIGTOOLS_OT_posetool_copy_matrix(bpy.types.Operator):
+    """keying rig custom property"""
+    bl_idname = "kiarigtools.posetool_copy_matrix"
+    bl_label = "copy"
+    def execute(self, context):
+        cmd.copy_matrix()
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_posetool_paste_matrix(bpy.types.Operator):
+    """keying rig custom property"""
+    bl_idname = "kiarigtools.posetool_paste_matrix"
+    bl_label = "paste"
+    def execute(self, context):
+        cmd.paste_matrix()
+        return {'FINISHED'}
+
 
 #---------------------------------------------------------------------------------------
 # constraint tool
@@ -941,7 +962,9 @@ classes = (
     #rig control panel
     KIARIGTOOLS_OT_rigctr_arm,
     KIARIGTOOLS_OT_modify_rig_control_panel,
-    KIARIGTOOLS_OT_modify_rig_control_panel_key
+    KIARIGTOOLS_OT_modify_rig_control_panel_key,
+    KIARIGTOOLS_OT_posetool_copy_matrix,
+    KIARIGTOOLS_OT_posetool_paste_matrix
     
 )
 

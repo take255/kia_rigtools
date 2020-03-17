@@ -120,3 +120,29 @@ def modify_rig_control_panel_key( rig , lr , propname ):
     bone.keyframe_insert(data_path='["%s"]' % prop)
 
     bpy.context.view_layer.update()
+
+#---------------------------------------------------------------------------------------
+#matrix copy paste
+#---------------------------------------------------------------------------------------
+BONE_MATRIX = []
+BONE_MATRIX_DIC = {}
+
+def copy_matrix():
+    amt = bpy.context.object
+    global BONE_MATRIX_DIC
+    BONE_MATRIX_DIC.clear()
+    utils.mode_p()
+
+    for bone in utils.get_selected_bones():        
+        BONE_MATRIX_DIC[bone.name] = Matrix(bone.matrix)
+        #m = Matrix(bone.matrix)
+        #pos =(m[0][3] , m[1][3] , m[2][3]  )
+        #bonematrixarray[bone.name] = [Matrix(bone.matrix) , pos]
+
+
+def paste_matrix():
+    for bone in bpy.context.selected_pose_bones:
+        bone.matrix = BONE_MATRIX_DIC[bone.name]
+
+    # for b in BONE_MATRIX_DIC:
+    #     print(b)
