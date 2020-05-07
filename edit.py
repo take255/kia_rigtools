@@ -84,6 +84,8 @@ Lsign = ('L_' , '_l')
 Rsign = ('R_' , '_r')
 
 def genarate_symmetry():
+    props = bpy.context.scene.kiarigtools_props
+
     amt = bpy.context.active_object
     
     oppositeBones = []
@@ -94,7 +96,7 @@ def genarate_symmetry():
         roll = bone.roll
 
         for L ,R in zip( Lsign , Rsign ):
-            notTrue = True
+            Exist = True
 
             if name[-2:] == L:
                 newname = name[:-2] + R
@@ -105,13 +107,18 @@ def genarate_symmetry():
             elif name[:2] == R:
                 newname = L + name[2:]
             else:
-                notTrue = False
+                Exist = False
         
-            if notTrue:
+            if Exist:
                 newbone = amt.data.edit_bones[newname]
                 newbone.head = (-head[0],head[1], head[2])
                 newbone.tail = (-tail[0],tail[1], tail[2])
-                newbone.roll = -roll + math.pi #反転したあと１８０°回転させる
+
+                if props.axismethod == 'old':
+                    newbone.roll = -roll + math.pi #反転したあと１８０°回転させる
+
+                elif props.axismethod == 'new':
+                    newbone.roll = -roll
 
 
 #---------------------------------------------------------------------------------------
@@ -137,7 +144,9 @@ def Normal2bone(bone1,bone2):
 
 #平面の法線からボーンのロールを修正する
 def AdjustRoll(bone,nor):
+    props = bpy.context.scene.kiarigtools_props
     mat = bone.matrix
+    
     z = Vector((mat[0][2],mat[1][2],mat[2][2]))
     z.normalize()
 
@@ -148,7 +157,13 @@ def AdjustRoll(bone,nor):
 
     cos_sita= z.dot(nor)
     sita = math.acos( cos_sita );
-    bone.roll = sita*sign
+
+    if props.axismethod == 'old':
+        bone.roll = sita*sign
+
+    elif props.axismethod == 'new':
+        bone.roll = sita*sign + math.pi/2
+
 
 
 class VecComp:
@@ -167,6 +182,7 @@ class VecComp:
         representaion method
         """
         return self.axis
+
 
 
 # class BoneDirectionTools(bpy.types.Operator):
@@ -431,6 +447,64 @@ def roll_degree(op):
         if op == '180d':
              bone.roll += math.pi
 
+
+def axis_swap(axis):
+    props = bpy.context.scene.kiarigtools_props
+
+    for bone in utils.get_selected_bones():
+        #mat = bone.matrix
+        head = Vector(bone.head)
+        matrix = bone.matrix.to_3x3()
+        matrix.transpose()
+
+        if axis == 'x':
+            x =  matrix[0]
+            y =  matrix[2]
+            z = -matrix[1]
+
+        elif axis == 'y':
+            x =  matrix[2]
+            y =  matrix[1]
+            z =  -matrix[0]
+
+        elif axis == 'z':
+            x =  matrix[1]
+            y = -matrix[0]
+            z =  matrix[2]
+
+        elif axis == 'invert':
+            x = -matrix[0]
+            y = -matrix[1]
+            z = -matrix[2]
+
+
+        m = Matrix((x,y,z))
+
+        m.transpose()
+        bone.matrix = m.to_4x4()
+
+        tail = Vector(bone.tail)
+
+        bone.head = head
+        bone.tail = head + tail
+
+
+        # z = Vector((mat[0][2],mat[1][2],mat[2][2]))
+        # z.normalize()
+
+        # #Xvectorを回転の正負判定に使う
+        # #Ｘ軸と法線の内積が正なら＋、負ならー
+        # x = Vector((mat[0][0],mat[1][0],mat[2][0]))
+        # sign= x.dot(nor)/math.fabs(x.dot(nor))
+
+        # cos_sita= z.dot(nor)
+        # sita = math.acos( cos_sita );
+
+        # if props.axismethod == 'old':
+        #     bone.roll = sita*sign
+
+        # elif props.axismethod == 'new':
+        #     bone.roll = sita*sign + math.pi/2
 
 # #X-axis MirrorがＯＮになっているとうまく実行できないので注意
 # class Roll_90degree(bpy.types.Operator):

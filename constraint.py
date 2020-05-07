@@ -46,7 +46,7 @@ def constraint(source_name , target_name , const_type , space ,axis_array , inve
 #const_type , source_name , target_name , space ,axis_array , invert_array , ratio
 #const_type == COPY_LOCATION , source_name , target_name , space ,axis_array , invert_array , ratio
 #const_type == COPY_ROTATION , source_name , target_name , space ,axis_array , invert_array , influence
-#const_type == COPY_TRANSFORMS , source_name , target_name , space
+#const_type == COPY_TRANSFORMS , source_name , target_name , space ,head_tail
 
 def do_const(*args):
     amt = bpy.context.object
@@ -94,6 +94,11 @@ def do_const(*args):
         c.invert_x = invert_array[0]
         c.invert_y = invert_array[1]
         c.invert_z = invert_array[2]
+
+    elif const_type == 'COPY_TRANSFORMS': 
+        if len(args) > 4:
+            c.head_tail = args[4]
+
     
     return c
 

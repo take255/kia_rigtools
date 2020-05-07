@@ -150,6 +150,7 @@ class KIARIGTOOLS_Props_OA(PropertyGroup):
     rigshape_scale : FloatProperty( name = "scale", min=0.01,default=1.0, update = cmd.rigshape_change_scale )
     setupik_lr : EnumProperty(items= (('l', 'l', 'L'),('r', 'r', 'R')))
     setupik_number : IntProperty(name="count", default=2)
+    setup_chain_baseame : StringProperty( name = 'name' )
 
     #コンストレイン関連
     const_influence : FloatProperty( name = "influence", min=0.00 , max=1.0, default=1.0, update= edit.constraint_showhide )
@@ -158,6 +159,7 @@ class KIARIGTOOLS_Props_OA(PropertyGroup):
     #リグのコントロール
     armature_name : StringProperty( name = 'armature' )
 
+    axismethod : EnumProperty(items= (('new', 'new', 'new'),('old', 'old', 'old')))
 
     for r in cmd.RIGARRAY:
         for p in cmd.PROPARRAY[r]:
@@ -412,6 +414,12 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
         box.operator("kiarigtools.setupik_hook")
 
         box = col.box()
+        box.label(text = 'Chain rig')
+        box.prop(props,'setup_chain_baseame')
+        box.operator("kiarigtools.setupik_setup_rig_chain")
+
+
+        box = col.box()
         box.label(text = 'setup for UE')
         box.operator("kiarigtools.setupik_ue")
 
@@ -447,6 +455,9 @@ class KIARIGTOOLS_MT_edittools(bpy.types.Operator):
         props = bpy.context.scene.kiarigtools_props        
 
         col_root = self.layout.column(align=False)
+        box = col_root.box()
+        box.prop(props,'axismethod')
+
         row = col_root.split(factor = 0.3, align = False)
 
         #row = col_root.row()
@@ -485,11 +496,23 @@ class KIARIGTOOLS_MT_edittools(bpy.types.Operator):
 
         #box = col_root.box()
         box = col1.box()
-        box.label(text = 'roll')
+        box.label(text = 'direction')
         col = box.column()
-        row = col.row()
+
+        box1 = col.box()
+        box1.label(text = 'roll')
+
+        row = box1.row()
         for x in ( '90d' , '-90d' , '180d'):
             row.operator("kiarigtools.edit_roll_degree" ,text = x ).op = x
+
+        box1 = col.box()
+        box1.label(text = 'axis swap')
+
+        row = box1.row()
+        for x in ( 'x' , 'y' , 'z' ,'invert'):
+            row.operator("kiarigtools.edit_axis_swap" ,text = x ).op = x
+
 
         row = col.row()
         row.operator("kiarigtools.edit_adjust_roll")
@@ -632,7 +655,7 @@ class KIARIGTOOLS_OT_setupik_rig_arm(bpy.types.Operator):
         return {'FINISHED'}
 
 class KIARIGTOOLS_OT_setupik_rig_leg(bpy.types.Operator):
-    """脚足のリグの自動設定\n太もも、すね、足、つま先の順でリストに並べる"""
+    """脚足のリグの自動設定\n腰、太もも、すね、足、つま先の順でリストに並べる"""
     bl_idname = "kiarigtools.setupik_rig_leg"
     bl_label = "leg"
     def execute(self, context):
@@ -677,6 +700,15 @@ class KIARIGTOOLS_OT_setupik_rig_neck_v2(bpy.types.Operator):
     bl_label = "neck v2"
     def execute(self, context):
         setup_ik.setup_rig_neck_v2()
+        return {'FINISHED'}
+
+
+class KIARIGTOOLS_OT_setupik_setup_rig_chain(bpy.types.Operator):
+    """setup Unreal Engine Rig"""    
+    bl_idname = "kiarigtools.setupik_setup_rig_chain"
+    bl_label = "assign chain rig"
+    def execute(self, context):
+        setup_ik.setup_rig_chain()
         return {'FINISHED'}
 
 
@@ -811,6 +843,15 @@ class KIARIGTOOLS_OT_edit_align_roll_global(bpy.types.Operator):
         edit.align_roll_global
         return {'FINISHED'}
 
+class KIARIGTOOLS_OT_edit_axis_swap(bpy.types.Operator):
+    """ロールを90°回転させる。"""
+    bl_idname = "kiarigtools.edit_axis_swap"
+    bl_label = ""
+    op : StringProperty()
+    def execute(self, context):
+        edit.axis_swap(self.op)
+        return {'FINISHED'}
+
 #---------------------------------------------------------------------------------------
 # rig control panel
 #---------------------------------------------------------------------------------------
@@ -918,7 +959,7 @@ classes = (
     KIARIGTOOLS_OT_rigshape_append,
     KIARIGTOOLS_OT_make_the_same_size,
     
-
+    #setup ik rig
     KIARIGTOOLS_OT_setupik_ik,
     KIARIGTOOLS_OT_setupik_polevector,
     KIARIGTOOLS_OT_setupik_spline_ik,
@@ -931,6 +972,7 @@ classes = (
     KIARIGTOOLS_OT_setupik_rig_spine_v3,
     KIARIGTOOLS_OT_setupik_rig_neck,
     KIARIGTOOLS_OT_setupik_rig_neck_v2,
+    KIARIGTOOLS_OT_setupik_setup_rig_chain,
 
     KIARIGTOOLS_OT_setupik_ue,
 
@@ -950,6 +992,7 @@ classes = (
     KIARIGTOOLS_OT_edit_adjust_roll,
     KIARIGTOOLS_OT_edit_roll_degree,
     KIARIGTOOLS_OT_edit_align_roll_global,
+    KIARIGTOOLS_OT_edit_axis_swap,
 
     #other tools
     KIARIGTOOLS_OT_edit_connect_chain,

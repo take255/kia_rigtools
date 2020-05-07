@@ -1345,7 +1345,200 @@ def setup_rig_neck_v2():
         bpy.context.object.data.layers[0] = True
 
 
+#assign chain rig
+def setup_rig_chain():
+    props = bpy.context.scene.kiarigtools_props        
+    basename = props.setup_chain_baseame
 
+    bones = utils.bone.sort()
+
+    if bones != []:
+        amt = bpy.context.object
+
+        #レイヤ８をアクティブにする
+        for i in range(32):
+            bpy.context.object.data.layers[i] = False
+
+        bpy.context.object.data.layers[8] = True
+        
+        med_spine_c = genarate_bone_from_chain( bones[0] , bones[-1] , 'med.%s.c' % basename)
+        chest_ctr = duplicator.duplicate( bones[-1] ,'ctr.%s.c' % basename , 'tail' ,2.0 , 'z')
+        #create_ik_modifier( med_spine_c , chest_ctr , 1)
+
+        #First , generate base and Hip controller.
+        base = duplicator.duplicate( bones[0] ,'med.%s_base.c' % basename, 'head' ,4.0 , 'z')
+        #hip_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.c', 'copy' ,1.0 , 'sel')
+        #constraint.do_const('COPY_TRANSFORMS' , bones[0], hip_ctr,  'WORLD')
+
+        #Second, Generate IK bone chain and tweak controller from Spine bones.
+        spinearray = []
+        tweakarray = []
+
+        for i,b in enumerate(bones):
+            sp = duplicator.duplicate( b ,'med.%s_%02d.c' % ( basename , i+1 ), 'copy' , 1 , 'sel')
+            tw = duplicator.duplicate( b ,'ctr.tweak.%s_%02d.c' % ( basename , i+1 ) , 'tail' , 1.5 , 'z')
+
+            parent(tw,sp)
+            spinearray.append(sp)
+            tweakarray.append(tw)
+
+        #connect spine chain
+        spine_num = len(spinearray)
+        for i in range( spine_num ):
+            parent(spinearray[i] , med_spine_c)
+
+        for i in range( spine_num - 1 ):
+            parent(spinearray[i + 1 ] , spinearray[i])
+            amt.data.edit_bones[ spinearray[i + 1 ] ].use_connect = True
+
+        create_ik_modifier( spinearray[-1] , chest_ctr , spine_num)
+
+
+        #add tipbone
+        tipbone = duplicator.duplicate( bones[-1] ,'med.%s_tip.c' % basename, 'tail' ,1.0 , 'sel')
+        constraint.do_const( 'COPY_TRANSFORMS' , tipbone  ,bones[-1] , 'WORLD' , 1.0)
+      
+
+        inf = 1.0/spine_num
+        for i in range( spine_num ):
+            constraint.do_const( 'COPY_ROTATION' , bones[i], chest_ctr, 'LOCAL' ,(False,True,False) , (False,False,False) , inf)
+            create_ik_modifier(bones[ i] , tweakarray[i] ,1)
+
+        utils.mode_p()
+
+
+        #for b in ( chest_ctr , base_ctr ):
+        amt.pose.bones[chest_ctr].custom_shape = bpy.data.objects['rig.shape.circle.dir']
+        #amt.pose.bones[chest_ctr].custom_shape_transform =amt.pose.bones[ tipbone ]
+
+        for b,shape in zip( tweakarray , (*bones[1:] , tipbone)):
+            amt.pose.bones[b].custom_shape = bpy.data.objects['rig.shape.board']
+            amt.pose.bones[b].custom_shape_transform = amt.pose.bones[ shape ]
+
+        #レイヤの設定
+        #直接さわらない補助ボーン
+        for bone in ( *spinearray , med_spine_c, tipbone):
+            move_layer(bone,8)
+        #move_layer(med_spine_c,8)
+
+
+        for bone in (chest_ctr  ,  *tweakarray ):
+            move_layer(bone,2)
+        
+        #parent
+        utils.mode_e()
+        #parent(hip_ctr,base_ctr)
+        parent(chest_ctr,base)
+        parent(tipbone,base)
+        parent(med_spine_c,base)
+        #parent(med_spine_c,hip_ctr)
+
+        for bonename in (chest_ctr ,  *tweakarray):
+            amt.data.edit_bones[bonename].show_wire = True
+
+        #bpy.ops.object.mode_set(mode='POSE')
+        utils.mode_p()
+        for bonename in (chest_ctr , *tweakarray):
+            amt.pose.bones[bonename].use_custom_shape_bone_size = False
+
+
+        bpy.context.object.data.layers[0] = True
+        bpy.context.object.data.layers[2] = True
+        bpy.context.object.data.layers[8] = False
+
+
+def setup_rig_chain_2():
+    props = bpy.context.scene.kiarigtools_props        
+    basename = props.setup_chain_baseame
+
+    bones = utils.bone.sort()
+
+    if bones != []:
+        amt = bpy.context.object
+
+        #レイヤ８をアクティブにする
+        for i in range(32):
+            bpy.context.object.data.layers[i] = False
+
+        bpy.context.object.data.layers[8] = True
+        
+        med_spine_c = genarate_bone_from_chain( bones[0] , bones[-1] , 'med.%s.c' % basename)
+        chest_ctr = duplicator.duplicate( bones[-1] ,'ctr.%s.c' % basename , 'tail' ,2.0 , 'z')
+        create_ik_modifier( med_spine_c , chest_ctr , 1)
+
+        #First , generate base and Hip controller.
+        base = duplicator.duplicate( bones[0] ,'med.%s_base.c' % basename, 'head' ,4.0 , 'z')
+        #hip_ctr = duplicator.duplicate( bones[0] ,'ctr.hip.c', 'copy' ,1.0 , 'sel')
+        #constraint.do_const('COPY_TRANSFORMS' , bones[0], hip_ctr,  'WORLD')
+
+        #Second, Generate IK bone chain and tweak controller from Spine bones.
+        spinearray = []
+        tweakarray = []
+
+        for i,b in enumerate(bones):
+            sp = duplicator.duplicate( b ,'med.%s_%02d.c' % ( basename , i+1 ), 'copy' , 1 , 'sel')
+            tw = duplicator.duplicate( b ,'ctr.tweak.%s_%02d.c' % ( basename , i+1 ) , 'tail' , 1.5 , 'z')
+
+            parent(tw,sp)
+            spinearray.append(sp)
+            tweakarray.append(tw)
+
+        #connect spine chain
+        spine_num = len(spinearray)
+        for i in range( spine_num ):
+            parent(spinearray[i] , med_spine_c)
+
+        #add tipbone
+        tipbone = duplicator.duplicate( bones[-1] ,'med.%s_tip.c' % basename, 'tail' ,1.0 , 'sel')
+        constraint.do_const( 'COPY_TRANSFORMS' , tipbone  ,bones[-1] , 'WORLD' , 1.0)
+      
+
+        inf = 1.0/spine_num
+        for i in range( spine_num ):
+            constraint.do_const( 'COPY_ROTATION' , bones[i], chest_ctr, 'LOCAL' ,(False,True,False) , (False,False,False) , inf)
+            create_ik_modifier(bones[ i] , tweakarray[i] ,1)
+
+        utils.mode_p()
+
+
+        #for b in ( chest_ctr , base_ctr ):
+        amt.pose.bones[chest_ctr].custom_shape = bpy.data.objects['rig.shape.circle.dir']
+        #amt.pose.bones[chest_ctr].custom_shape_transform =amt.pose.bones[ tipbone ]
+
+        for b,shape in zip( tweakarray , (*bones[1:] , tipbone)):
+            amt.pose.bones[b].custom_shape = bpy.data.objects['rig.shape.board']
+            amt.pose.bones[b].custom_shape_transform = amt.pose.bones[ shape ]
+
+        #レイヤの設定
+        #直接さわらない補助ボーン
+        for bone in ( *spinearray , med_spine_c, tipbone):
+            move_layer(bone,8)
+        #move_layer(med_spine_c,8)
+
+
+        for bone in (chest_ctr  ,  *tweakarray ):
+            move_layer(bone,2)
+        
+        #parent
+        utils.mode_e()
+        #parent(hip_ctr,base_ctr)
+        parent(chest_ctr,base)
+        parent(tipbone,base)
+        parent(med_spine_c,base)
+        #parent(med_spine_c,hip_ctr)
+
+        for bonename in (chest_ctr ,  *tweakarray):
+            amt.data.edit_bones[bonename].show_wire = True
+
+        #bpy.ops.object.mode_set(mode='POSE')
+        utils.mode_p()
+        for bonename in (chest_ctr , *tweakarray):
+            amt.pose.bones[bonename].use_custom_shape_bone_size = False
+
+
+        bpy.context.object.data.layers[0] = True
+        bpy.context.object.data.layers[2] = True
+        bpy.context.object.data.layers[8] = False
 
 def setup_ue():
     leg_ = ('thigh_l' , )

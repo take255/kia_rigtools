@@ -199,7 +199,8 @@ class KIARIGTOOLS_MT_duplicator(bpy.types.Operator):
         new_name = 'ctr.Bone'
         bonearray =[]
 
-        for bonename in lib.list_get_checked():
+        for bone in utils.get_selected_bones():
+            bonename = bone.name
             new_name = 'ctr.bone.' + bonename
             targetname = duplicate(bonename , new_name , self.radio ,self.length_ratio , self.radio2)
             bonearray.append([bonename,targetname])
