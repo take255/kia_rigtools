@@ -128,7 +128,6 @@ def kiarigtools_handler(scene):
         for i , bone in enumerate(props.allbones):
             if not bone.name in [x.name for x in selected]:
                 index_notExists.append(i)
-                #print(i)
 
 
         for index in reversed(index_notExists):
@@ -150,7 +149,9 @@ class KIARIGTOOLS_Props_OA(PropertyGroup):
     rigshape_scale : FloatProperty( name = "scale", min=0.01,default=1.0, update = cmd.rigshape_change_scale )
     setupik_lr : EnumProperty(items= (('l', 'l', 'L'),('r', 'r', 'R')))
     setupik_number : IntProperty(name="count", default=2)
+    ploc_number : IntProperty(name="count", default=2)
     setup_chain_baseame : StringProperty( name = 'name' )
+    parent_polevector : BoolProperty()
 
     #コンストレイン関連
     const_influence : FloatProperty( name = "influence", min=0.00 , max=1.0, default=1.0, update= edit.constraint_showhide )
@@ -389,7 +390,14 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
     def draw(self, context):
         props = bpy.context.scene.kiarigtools_props        
 
-        row = self.layout.row(align=False)
+        col_root = self.layout.column(align=False)
+        box = col_root.box()
+        box.prop(props,'axismethod')
+
+
+
+        #row = self.layout.row(align=False)
+        row = col_root.row(align=False)
         box = row.box()
 
         box.label(text = 'rigshape')
@@ -403,20 +411,35 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
     
 
         col = row.column()
+
+        box = col.box()
+        box.label(text = 'rig')
+        box.prop(props,'setup_chain_baseame')
+        row1 = box.row()
+        row1.operator("kiarigtools.setupik_customrig",text = 'ik').mode = 'ik'
+        row1.prop(props, "parent_polevector")
+
+        row1 = box.row()
+        row1.operator("kiarigtools.setupik_customrig",text = 'knee').mode = 'knee'
+        row1.operator("kiarigtools.setupik_customrig",text = 'transform').mode = 'transform'
+
+        row1 = box.row()
+        row1.operator("kiarigtools.setupik_customrig",text = 'ploc').mode = 'ploc'
+        row1.prop(props, "ploc_number")
+
+
+        box.operator("kiarigtools.setupik_setup_rig_chain")
+
+
         box = col.box()
         box.label(text = 'setup ik')
         row1 = box.row()
-        row1.operator("kiarigtools.setupik_ik")
+        row1.operator("kiarigtools.setupik_ik").mode = 1
         row1.prop(props, "setupik_number")
 
         box.operator("kiarigtools.setupik_polevector")
         box.operator("kiarigtools.setupik_spline_ik")
         box.operator("kiarigtools.setupik_hook")
-
-        box = col.box()
-        box.label(text = 'Chain rig')
-        box.prop(props,'setup_chain_baseame')
-        box.operator("kiarigtools.setupik_setup_rig_chain")
 
 
         box = col.box()
@@ -433,6 +456,7 @@ class KIARIGTOOLS_MT_rigsetuptools(bpy.types.Operator):
         box.operator("kiarigtools.setupik_rig_spine_v3")
         box.operator("kiarigtools.setupik_rig_neck")
         box.operator("kiarigtools.setupik_rig_neck_v2")
+        box.operator("kiarigtools.setupik_rig_finger")
         box.prop(props, "setupik_lr", expand=True)
 
 
@@ -612,14 +636,44 @@ class KIARIGTOOLS_OT_make_the_same_size(bpy.types.Operator):
 
 
 #---------------------------------------------------------------------------------------
+# setup custom rig
+#---------------------------------------------------------------------------------------
+class KIARIGTOOLS_OT_setupik_customrig(bpy.types.Operator):
+    """Allow you to set up custom rigs.
+    ik:
+    Add ik controller and pole vector.
+    First ,select 2 joint bones, and execute this command.
+    
+    knee:
+    Add knee bone and constraint knee to leg bone.
+    First ,select 2 joint bones, and execute this command.
+
+    transform:
+    Add simple transform constraint node.
+    First ,select a single bone, and execute this command.
+
+    ploc:
+    Add procedural rotation node.
+    First ,select a single bone, and decide procedural bone number.
+    next exeute this command."""
+
+    bl_idname = "kiarigtools.setupik_customrig"
+    bl_label = ""
+    mode : StringProperty()
+    def execute(self, context):
+        setup_ik.customrig(self.mode)
+        return {'FINISHED'}
+
+#---------------------------------------------------------------------------------------
 # setup ik
 #---------------------------------------------------------------------------------------
 class KIARIGTOOLS_OT_setupik_ik(bpy.types.Operator):
     """IKのセットアップ。ＩＫの先端とコントローラの順にリストに加えて実行する。"""
     bl_idname = "kiarigtools.setupik_ik"
     bl_label = "ik"
+    mode : IntProperty()
     def execute(self, context):
-        setup_ik.ik()
+        setup_ik.ik(self.mode)
         return {'FINISHED'}
 
 class KIARIGTOOLS_OT_setupik_polevector(bpy.types.Operator):
@@ -633,7 +687,7 @@ class KIARIGTOOLS_OT_setupik_polevector(bpy.types.Operator):
 class KIARIGTOOLS_OT_setupik_spline_ik(bpy.types.Operator):
     """リストに根本から先端までのボーンを入力する。\nコントローラは自動で生成される。\n先頭のボーンを選択しておくこと。\nベジェカーブが生成されるのでそれでコントロールする。"""
     bl_idname = "kiarigtools.setupik_spline_ik"
-    bl_label = "spline ik"
+    bl_label = "spline ik"  
     def execute(self, context):
         setup_ik.spline_ik()
         return {'FINISHED'}
@@ -695,11 +749,26 @@ class KIARIGTOOLS_OT_setupik_rig_neck(bpy.types.Operator):
         return {'FINISHED'}
 
 class KIARIGTOOLS_OT_setupik_rig_neck_v2(bpy.types.Operator):
-    """首骨のリグの自動設定\n胸の骨、首、頭までの骨を順番にリストに登録して実行"""    
+    """首骨のリグの自動設定:
+        胸の骨、首、頭までの骨を順番にリストに登録して実行"""    
+
     bl_idname = "kiarigtools.setupik_rig_neck_v2"
     bl_label = "neck v2"
     def execute(self, context):
         setup_ik.setup_rig_neck_v2()
+        return {'FINISHED'}
+
+class KIARIGTOOLS_OT_setupik_rig_finger(bpy.types.Operator):
+    """指のリグの自動設定:
+    指のルートボーンを選択して実行する。
+    ボーンのフォーマットはindex_01_lで最初と最後の要素を使う。
+    できあがるコントローラ名は ctr.index.lとなる。
+    tweakノードはctr.tweak.index_01.lとなる。"""    
+
+    bl_idname = "kiarigtools.setupik_rig_finger"
+    bl_label = "finger"
+    def execute(self, context):
+        setup_ik.setup_rig_finger()
         return {'FINISHED'}
 
 
@@ -973,8 +1042,10 @@ classes = (
     KIARIGTOOLS_OT_setupik_rig_neck,
     KIARIGTOOLS_OT_setupik_rig_neck_v2,
     KIARIGTOOLS_OT_setupik_setup_rig_chain,
+    KIARIGTOOLS_OT_setupik_rig_finger,
 
     KIARIGTOOLS_OT_setupik_ue,
+    KIARIGTOOLS_OT_setupik_customrig,
 
     #edit
     KIARIGTOOLS_OT_edit_length_uniform,

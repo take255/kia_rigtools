@@ -2,6 +2,8 @@ import bpy
 import imp
 from bpy.props import ( FloatProperty , EnumProperty ,BoolProperty )
 import math
+from . import utils
+imp.reload(utils)
 #from bpy.types import PropertyGroup
 
 
@@ -213,6 +215,17 @@ def do_transformation(*args):
         c.from_min_z_rot = math.radians(args[6][4])
         c.from_max_z_rot = math.radians(args[6][5])
 
+    elif args[3] == 'SCALE':
+        c.from_max_x_scale = args[6][1]
+        c.from_min_y_scale = args[6][2]
+        c.from_min_x_scale = args[6][0]
+        c.from_max_y_scale = args[6][3]
+        c.from_min_z_scale = args[6][4]
+        c.from_max_z_scale = args[6][5]
+
+
+
+    if args[4] == 'ROTATION':
         c.to_min_x_rot = math.radians(args[7][0])
         c.to_max_x_rot = math.radians(args[7][1])
         c.to_min_y_rot = math.radians(args[7][2])
@@ -224,6 +237,24 @@ def do_transformation(*args):
     c.from_rotation_mode = args[9]
     c.to_euler_order = args[10]
     return c
+
+def const_limit_rotation( source , angle ):
+    amt = bpy.context.object
+    utils.mode_p()
+
+    const_type = 'LIMIT_ROTATION'
+    
+    c =source.constraints.new(const_type)
+    c.use_limit_x = True
+    c.use_limit_y = True
+    c.use_limit_z = True
+
+    c.min_x = -math.radians(angle)
+    c.max_x = math.radians(angle)
+    c.min_y = -math.radians(angle)
+    c.max_y = math.radians(angle)
+    c.min_z = -math.radians(angle)
+    c.max_z = math.radians(angle)
 
 
 # class ConstraintTools(bpy.types.Operator):
@@ -269,7 +300,8 @@ class KIARIGTOOLS_MT_constrainttools(bpy.types.Operator):
     ('COPY_TRANSFORMS','TRANSFORM',''),
     ('COPY_ROTATION','ROTATION',''),
     ('COPY_LOCATION','LOCATION',''),
-    ('TRANSFORM','TRANSFORMATION','')
+    ('TRANSFORM','TRANSFORMATION',''),
+    ('LIMIT_ROTATION','LIMIT_ROTATION','')
     ),name = 'const_type')
 
     space : bpy.props.EnumProperty(items = (
@@ -292,6 +324,8 @@ class KIARIGTOOLS_MT_constrainttools(bpy.types.Operator):
     invert_x : BoolProperty(name="X" ,  default = False)
     invert_y : BoolProperty(name="Y" ,  default = False)
     invert_z : BoolProperty(name="Z" ,  default = False)
+
+    rot_limit_angle : FloatProperty( name = "rotlimit", min=-180.0 , max=180.0, default=0.0)
 
 
     def draw(self, context) :
@@ -332,31 +366,35 @@ class KIARIGTOOLS_MT_constrainttools(bpy.types.Operator):
         row.label(text = '>>Z')
 
 
+
+        box = layout.row().box()
+        box.label(text = "Rotation Limit")
+        row = box.row(align=False)
+        row.prop(self, "rot_limit_angle")
+
+
+
     #チェックされたものを対象とする。
     #コンストレインの元は選択されたもの
     def execute(self, context):
        #ポーズモードにする
         bpy.ops.object.mode_set(mode = 'POSE')
 
-        if lib.list_exists():
-            amt = bpy.context.object
-            first = lib.list_get_selected()
-            allbone = lib.list_get_checked()
+        amt = bpy.context.object
+        for tgt in utils.get_selected_bones():
+            if self.const_type == 'TRANSFORM':
+                constraint_transformation( tgt , first  ,self.const_type , self.space ,
+                self.map_from,self.map_to,
+                (self.transform_x , self.transform_y , self.transform_z) )
 
-            allbone.remove(first)
-            #source = amt.pose.bones[first]
+            elif self.const_type == 'LIMIT_ROTATION':
+                const_limit_rotation(tgt , self.rot_limit_angle)
 
-            for tgt in allbone:
-
-                if self.const_type == 'TRANSFORM':
-                    constraint_transformation( tgt , first  ,self.const_type , self.space ,
-                    self.map_from,self.map_to,
-                    (self.transform_x , self.transform_y , self.transform_z) )
-                else:
-                    constraint(tgt , first  ,self.const_type , self.space ,
-                    (self.use_x,self.use_y,self.use_z) ,
-                    (self.invert_x , self.invert_y , self.invert_z)
-                    )
+            else:
+                constraint(tgt , first  ,self.const_type , self.space ,
+                (self.use_x,self.use_y,self.use_z) ,
+                (self.invert_x , self.invert_y , self.invert_z)
+                )
         return {'FINISHED'}
 
     def invoke(self, context, event):

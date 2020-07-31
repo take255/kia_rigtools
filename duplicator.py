@@ -17,7 +17,18 @@ UNIT_VECTOR={
 }
 
 #ボーンをコピーして新ボーンの名前を返す
-def duplicate(bonename , new_name , mode ,length_ratio , direction):
+#def duplicate(bonename , bonename , mode ,length_ratio , direction , use_deform):
+def duplicate(*args):
+    bonename = args[0]
+    new_name = args[1]
+    mode = args[2]
+    length_ratio  = args[3]
+    direction  = args[4]
+
+    use_deform = False
+    if len(args) > 5:
+        use_deform = args[5]
+
     amt = bpy.context.object
     utils.mode_e()
     root = utils.rigroot()
@@ -34,7 +45,7 @@ def duplicate(bonename , new_name , mode ,length_ratio , direction):
     #ボーン生成
     target = amt.data.edit_bones.new( new_name )
     target.parent = root
-    target.use_deform = False
+    target.use_deform = use_deform
 
     #new_name = target.name
 
@@ -44,7 +55,7 @@ def duplicate(bonename , new_name , mode ,length_ratio , direction):
     if mode == 'copy':
         target.head = bonehead
         target.tail = bonehead + vec*length * length_ratio
-        target.roll = boneroll
+        #target.roll = boneroll
 
     if mode == 'head':
         target.head = bonehead
@@ -62,6 +73,7 @@ def duplicate(bonename , new_name , mode ,length_ratio , direction):
         else:
             target.tail = bonetail + vec*length * length_ratio
 
+    target.roll = boneroll
 
     #utils.mode_p()
     #amt.data.bones[new_name].use_deform = False
